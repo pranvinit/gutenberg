@@ -6,7 +6,13 @@ import { View } from 'react-native';
 /**
  * WordPress dependencies
  */
-import { Component } from '@wordpress/element';
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from '@wordpress/element';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import {
@@ -31,257 +37,327 @@ export const MEDIA_SAVE_STATE_RESET = 8;
 export const MEDIA_SAVE_FINAL_STATE_RESULT = 9;
 export const MEDIA_SAVE_MEDIAID_CHANGED = 10;
 
-export class BlockMediaUpdateProgress extends Component {
-	constructor( props ) {
-		super( props );
+export function BlockMediaUpdateProgress( props ) {
+	const {
+		renderContent = () => null,
+		mediaFiles,
+		onUpdateMediaUploadProgress,
+		onFinishMediaUploadWithSuccess,
+		onFinishMediaUploadWithFailure,
+		onMediaUploadStateReset,
+		onUpdateMediaSaveProgress,
+		onFinishMediaSaveWithSuccess,
+		onFinishMediaSaveWithFailure,
+		onMediaSaveStateReset,
+		onFinalSaveResult,
+		onMediaIdChanged,
+	} = props;
 
-		this.state = {
-			progress: 0,
-			isSaveInProgress: false,
-			isSaveFailed: false,
-			isUploadInProgress: false,
-			isUploadFailed: false,
-		};
+	const [ progress, setProgress ] = useState( 0 );
+	const [ isUploadInProgress, setIsUploadInProgress ] = useState( false );
+	const [ isUploadFailed, setIsUploadFailed ] = useState( false );
+	const [ isSaveInProgress, setIsSaveInProgress ] = useState( false );
+	const [ isSaveFailed, setIsSaveFailed ] = useState( false );
 
-		this.mediaUpload = this.mediaUpload.bind( this );
-		this.mediaSave = this.mediaSave.bind( this );
-	}
+	const subscriptionParentMediaUpload = useRef( null );
+	const subscriptionParentMediaSave = useRef( null );
 
-	componentDidMount() {
-		this.addMediaUploadListener();
-		this.addMediaSaveListener();
-	}
+	const mediaIdContainedInMediaFiles = useCallback(
+		( mediaId, mediaFilesList ) => {
+			if ( mediaId !== undefined && mediaFilesList !== undefined ) {
+				return mediaFilesList.some(
+					( element ) => element.id === mediaId.toString()
+				);
+			}
+			return false;
+		},
+		[]
+	);
 
-	componentWillUnmount() {
-		this.removeMediaUploadListener();
-		this.removeMediaSaveListener();
-	}
+	// ---- Block media upload actions ----
+	const updateMediaUploadProgress = useCallback(
+		( payload ) => {
+			setProgress( payload.progress );
+			setIsUploadInProgress( true );
+			setIsUploadFailed( false );
+			setIsSaveInProgress( false );
+			setIsSaveFailed( false );
 
-	mediaIdContainedInMediaFiles( mediaId, mediaFiles ) {
-		if ( mediaId !== undefined && mediaFiles !== undefined ) {
-			return mediaFiles.some(
-				( element ) => element.id === mediaId.toString()
-			);
-		}
-		return false;
-	}
+			if ( onUpdateMediaUploadProgress ) {
+				onUpdateMediaUploadProgress( payload );
+			}
+		},
+		[ onUpdateMediaUploadProgress ]
+	);
 
-	mediaUpload( payload ) {
-		const { mediaFiles } = this.props;
+	const finishMediaUploadWithSuccess = useCallback(
+		( payload ) => {
+			setIsUploadInProgress( false );
+			setIsSaveInProgress( false );
 
-		if (
-			this.mediaIdContainedInMediaFiles( payload.mediaId, mediaFiles ) ===
-			false
-		) {
+			if ( onFinishMediaUploadWithSuccess ) {
+				onFinishMediaUploadWithSuccess( payload );
+			}
+		},
+		[ onFinishMediaUploadWithSuccess ]
+	);
+
+	const finishMediaUploadWithFailure = useCallback(
+		( payload ) => {
+			setIsUploadInProgress( false );
+			setIsUploadFailed( true );
+
+			if ( onFinishMediaUploadWithFailure ) {
+				onFinishMediaUploadWithFailure( payload );
+			}
+		},
+		[ onFinishMediaUploadWithFailure ]
+	);
+
+	const mediaUploadStateReset = useCallback(
+		( payload ) => {
+			setIsUploadInProgress( false );
+			setIsUploadFailed( false );
+
+			if ( onMediaUploadStateReset ) {
+				onMediaUploadStateReset( payload );
+			}
+		},
+		[ onMediaUploadStateReset ]
+	);
+
+	const mediaUpload = useCallback(
+		( payload ) => {
+			if (
+				! mediaIdContainedInMediaFiles( payload.mediaId, mediaFiles )
+			) {
+				return;
+			}
+
+			switch ( payload.state ) {
+				case MEDIA_UPLOAD_STATE_UPLOADING:
+					updateMediaUploadProgress( payload );
+					break;
+				case MEDIA_UPLOAD_STATE_SUCCEEDED:
+					finishMediaUploadWithSuccess( payload );
+					break;
+				case MEDIA_UPLOAD_STATE_FAILED:
+					finishMediaUploadWithFailure( payload );
+					break;
+				case MEDIA_UPLOAD_STATE_RESET:
+					mediaUploadStateReset( payload );
+					break;
+			}
+		},
+		[
+			mediaFiles,
+			mediaIdContainedInMediaFiles,
+			updateMediaUploadProgress,
+			finishMediaUploadWithSuccess,
+			finishMediaUploadWithFailure,
+			mediaUploadStateReset,
+		]
+	);
+
+	// ---- Block media save actions ----
+	const updateMediaSaveProgress = useCallback(
+		( payload ) => {
+			setProgress( payload.progress );
+			setIsSaveInProgress( true );
+			setIsSaveFailed( false );
+			setIsUploadInProgress( false );
+			setIsUploadFailed( false );
+
+			if ( onUpdateMediaSaveProgress ) {
+				onUpdateMediaSaveProgress( payload );
+			}
+		},
+		[ onUpdateMediaSaveProgress ]
+	);
+
+	const finishMediaSaveWithSuccess = useCallback(
+		( payload ) => {
+			setIsSaveInProgress( false );
+
+			if ( onFinishMediaSaveWithSuccess ) {
+				onFinishMediaSaveWithSuccess( payload );
+			}
+		},
+		[ onFinishMediaSaveWithSuccess ]
+	);
+
+	const finishMediaSaveWithFailure = useCallback(
+		( payload ) => {
+			setIsSaveInProgress( false );
+			setIsSaveFailed( true );
+
+			if ( onFinishMediaSaveWithFailure ) {
+				onFinishMediaSaveWithFailure( payload );
+			}
+		},
+		[ onFinishMediaSaveWithFailure ]
+	);
+
+	const mediaSaveStateReset = useCallback(
+		( payload ) => {
+			setIsSaveInProgress( false );
+			setIsSaveFailed( false );
+
+			if ( onMediaSaveStateReset ) {
+				onMediaSaveStateReset( payload );
+			}
+		},
+		[ onMediaSaveStateReset ]
+	);
+
+	const finalSaveResult = useCallback(
+		( payload ) => {
+			setProgress( payload.progress );
+			setIsUploadInProgress( false );
+			setIsUploadFailed( false );
+			setIsSaveInProgress( false );
+			setIsSaveFailed( ! payload.success );
+
+			if ( onFinalSaveResult ) {
+				onFinalSaveResult( payload );
+			}
+		},
+		[ onFinalSaveResult ]
+	);
+
+	const mediaIdChanged = useCallback(
+		( payload ) => {
+			setIsUploadInProgress( false );
+			setIsUploadFailed( false );
+			setIsSaveInProgress( false );
+			setIsSaveFailed( false );
+
+			if ( onMediaIdChanged ) {
+				onMediaIdChanged( payload );
+			}
+		},
+		[ onMediaIdChanged ]
+	);
+
+	const mediaSave = useCallback(
+		( payload ) => {
+			if (
+				! mediaIdContainedInMediaFiles( payload.mediaId, mediaFiles )
+			) {
+				return;
+			}
+
+			switch ( payload.state ) {
+				case MEDIA_SAVE_STATE_SAVING:
+					updateMediaSaveProgress( payload );
+					break;
+				case MEDIA_SAVE_STATE_SUCCEEDED:
+					finishMediaSaveWithSuccess( payload );
+					break;
+				case MEDIA_SAVE_STATE_FAILED:
+					finishMediaSaveWithFailure( payload );
+					break;
+				case MEDIA_SAVE_STATE_RESET:
+					mediaSaveStateReset( payload );
+					break;
+				case MEDIA_SAVE_FINAL_STATE_RESULT:
+					finalSaveResult( payload );
+					break;
+				case MEDIA_SAVE_MEDIAID_CHANGED:
+					mediaIdChanged( payload );
+					break;
+			}
+		},
+		[
+			mediaFiles,
+			mediaIdContainedInMediaFiles,
+			updateMediaSaveProgress,
+			finishMediaSaveWithSuccess,
+			finishMediaSaveWithFailure,
+			mediaSaveStateReset,
+			finalSaveResult,
+			mediaIdChanged,
+		]
+	);
+
+	// ---- Subscription management ----
+	const addMediaUploadListener = useCallback( () => {
+		if ( subscriptionParentMediaUpload.current ) {
 			return;
 		}
-
-		switch ( payload.state ) {
-			case MEDIA_UPLOAD_STATE_UPLOADING:
-				this.updateMediaUploadProgress( payload );
-				break;
-			case MEDIA_UPLOAD_STATE_SUCCEEDED:
-				this.finishMediaUploadWithSuccess( payload );
-				break;
-			case MEDIA_UPLOAD_STATE_FAILED:
-				this.finishMediaUploadWithFailure( payload );
-				break;
-			case MEDIA_UPLOAD_STATE_RESET:
-				this.mediaUploadStateReset( payload );
-				break;
-		}
-	}
-
-	mediaSave( payload ) {
-		const { mediaFiles } = this.props;
-
-		if (
-			this.mediaIdContainedInMediaFiles( payload.mediaId, mediaFiles ) ===
-			false
-		) {
-			return;
-		}
-
-		switch ( payload.state ) {
-			case MEDIA_SAVE_STATE_SAVING:
-				this.updateMediaSaveProgress( payload );
-				break;
-			case MEDIA_SAVE_STATE_SUCCEEDED:
-				this.finishMediaSaveWithSuccess( payload );
-				break;
-			case MEDIA_SAVE_STATE_FAILED:
-				this.finishMediaSaveWithFailure( payload );
-				break;
-			case MEDIA_SAVE_STATE_RESET:
-				this.mediaSaveStateReset( payload );
-				break;
-			case MEDIA_SAVE_FINAL_STATE_RESULT:
-				this.finalSaveResult( payload );
-				break;
-			case MEDIA_SAVE_MEDIAID_CHANGED:
-				this.mediaIdChanged( payload );
-				break;
-		}
-	}
-
-	// ---- Block media save actions.
-	updateMediaSaveProgress( payload ) {
-		this.setState( {
-			progress: payload.progress,
-			isUploadInProgress: false,
-			isUploadFailed: false,
-			isSaveInProgress: true,
-			isSaveFailed: false,
-		} );
-		if ( this.props.onUpdateMediaSaveProgress ) {
-			this.props.onUpdateMediaSaveProgress( payload );
-		}
-	}
-
-	finishMediaSaveWithSuccess( payload ) {
-		this.setState( { isSaveInProgress: false } );
-		if ( this.props.onFinishMediaSaveWithSuccess ) {
-			this.props.onFinishMediaSaveWithSuccess( payload );
-		}
-	}
-
-	finishMediaSaveWithFailure( payload ) {
-		this.setState( { isSaveInProgress: false, isSaveFailed: true } );
-		if ( this.props.onFinishMediaSaveWithFailure ) {
-			this.props.onFinishMediaSaveWithFailure( payload );
-		}
-	}
-
-	mediaSaveStateReset( payload ) {
-		this.setState( { isSaveInProgress: false, isSaveFailed: false } );
-		if ( this.props.onMediaSaveStateReset ) {
-			this.props.onMediaSaveStateReset( payload );
-		}
-	}
-
-	finalSaveResult( payload ) {
-		this.setState( {
-			progress: payload.progress,
-			isUploadInProgress: false,
-			isUploadFailed: false,
-			isSaveInProgress: false,
-			isSaveFailed: ! payload.success,
-		} );
-		if ( this.props.onFinalSaveResult ) {
-			this.props.onFinalSaveResult( payload );
-		}
-	}
-
-	mediaIdChanged( payload ) {
-		this.setState( {
-			isUploadInProgress: false,
-			isUploadFailed: false,
-			isSaveInProgress: false,
-			isSaveFailed: false,
-		} );
-		if ( this.props.onMediaIdChanged ) {
-			this.props.onMediaIdChanged( payload );
-		}
-	}
-
-	// ---- Block media upload actions.
-	updateMediaUploadProgress( payload ) {
-		this.setState( {
-			progress: payload.progress,
-			isUploadInProgress: true,
-			isUploadFailed: false,
-			isSaveInProgress: false,
-			isSaveFailed: false,
-		} );
-		if ( this.props.onUpdateMediaUploadProgress ) {
-			this.props.onUpdateMediaUploadProgress( payload );
-		}
-	}
-
-	finishMediaUploadWithSuccess( payload ) {
-		this.setState( { isUploadInProgress: false, isSaveInProgress: false } );
-		if ( this.props.onFinishMediaUploadWithSuccess ) {
-			this.props.onFinishMediaUploadWithSuccess( payload );
-		}
-	}
-
-	finishMediaUploadWithFailure( payload ) {
-		this.setState( { isUploadInProgress: false, isUploadFailed: true } );
-		if ( this.props.onFinishMediaUploadWithFailure ) {
-			this.props.onFinishMediaUploadWithFailure( payload );
-		}
-	}
-
-	mediaUploadStateReset( payload ) {
-		this.setState( { isUploadInProgress: false, isUploadFailed: false } );
-		if ( this.props.onMediaUploadStateReset ) {
-			this.props.onMediaUploadStateReset( payload );
-		}
-	}
-
-	addMediaUploadListener() {
-		// If we already have a subscription not worth doing it again.
-		if ( this.subscriptionParentMediaUpload ) {
-			return;
-		}
-		this.subscriptionParentMediaUpload = subscribeMediaUpload(
+		subscriptionParentMediaUpload.current = subscribeMediaUpload(
 			( payload ) => {
-				this.mediaUpload( payload );
+				mediaUpload( payload );
 			}
 		);
-	}
+	}, [ mediaUpload ] );
 
-	removeMediaUploadListener() {
-		if ( this.subscriptionParentMediaUpload ) {
-			this.subscriptionParentMediaUpload.remove();
+	const removeMediaUploadListener = useCallback( () => {
+		if ( subscriptionParentMediaUpload.current ) {
+			subscriptionParentMediaUpload.current.remove();
+			subscriptionParentMediaUpload.current = null;
 		}
-	}
+	}, [] );
 
-	addMediaSaveListener() {
-		// If we already have a subscription not worth doing it again.
-		if ( this.subscriptionParentMediaSave ) {
+	const addMediaSaveListener = useCallback( () => {
+		if ( subscriptionParentMediaSave.current ) {
 			return;
 		}
-		this.subscriptionParentMediaSave = subscribeMediaSave( ( payload ) => {
-			this.mediaSave( payload );
-		} );
+		subscriptionParentMediaSave.current = subscribeMediaSave(
+			( payload ) => {
+				mediaSave( payload );
+			}
+		);
+	}, [ mediaSave ] );
+
+	const removeMediaSaveListener = useCallback( () => {
+		if ( subscriptionParentMediaSave.current ) {
+			subscriptionParentMediaSave.current.remove();
+			subscriptionParentMediaSave.current = null;
+		}
+	}, [] );
+
+	useEffect( () => {
+		addMediaUploadListener();
+		addMediaSaveListener();
+
+		return () => {
+			removeMediaUploadListener();
+			removeMediaSaveListener();
+		};
+	}, [
+		addMediaUploadListener,
+		addMediaSaveListener,
+		removeMediaUploadListener,
+		removeMediaSaveListener,
+	] );
+
+	// eslint-disable-next-line @wordpress/i18n-no-collapsible-whitespace
+	const retryMessageSave = __(
+		'Failed to save files.\nPlease tap for options.'
+	);
+	// eslint-disable-next-line @wordpress/i18n-no-collapsible-whitespace
+	const retryMessageUpload = __(
+		'Failed to upload files.\nPlease tap for options.'
+	);
+
+	const showSpinner = isUploadInProgress || isSaveInProgress;
+	const computedProgress = progress * 100;
+
+	let retryMessage = retryMessageSave;
+	if ( isUploadFailed ) {
+		retryMessage = retryMessageUpload;
 	}
 
-	removeMediaSaveListener() {
-		if ( this.subscriptionParentMediaSave ) {
-			this.subscriptionParentMediaSave.remove();
-		}
-	}
-
-	render() {
-		const { renderContent = () => null } = this.props;
-		const {
-			isUploadInProgress,
-			isUploadFailed,
-			isSaveInProgress,
-			isSaveFailed,
-		} = this.state;
-		const showSpinner =
-			this.state.isUploadInProgress || this.state.isSaveInProgress;
-		const progress = this.state.progress * 100;
-		// eslint-disable-next-line @wordpress/i18n-no-collapsible-whitespace
-		const retryMessageSave = __(
-			'Failed to save files.\nPlease tap for options.'
-		);
-		// eslint-disable-next-line @wordpress/i18n-no-collapsible-whitespace
-		const retryMessageUpload = __(
-			'Failed to upload files.\nPlease tap for options.'
-		);
-		let retryMessage = retryMessageSave;
-		if ( isUploadFailed ) {
-			retryMessage = retryMessageUpload;
-		}
-
-		return (
+	return useMemo(
+		() => (
 			<View style={ styles.mediaUploadProgress } pointerEvents="box-none">
 				{ showSpinner && (
 					<View style={ styles.progressBar }>
-						<Spinner progress={ progress } testID="spinner" />
+						<Spinner
+							progress={ computedProgress }
+							testID="spinner"
+						/>
 					</View>
 				) }
 				{ renderContent( {
@@ -292,8 +368,18 @@ export class BlockMediaUpdateProgress extends Component {
 					retryMessage,
 				} ) }
 			</View>
-		);
-	}
+		),
+		[
+			showSpinner,
+			computedProgress,
+			isUploadInProgress,
+			isUploadFailed,
+			isSaveInProgress,
+			isSaveFailed,
+			retryMessage,
+			renderContent,
+		]
+	);
 }
 
 export default BlockMediaUpdateProgress;
