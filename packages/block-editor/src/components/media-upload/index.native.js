@@ -6,7 +6,13 @@ import { Platform } from 'react-native';
 /**
  * WordPress dependencies
  */
-import { Component, React } from '@wordpress/element';
+import React, {
+	useState,
+	useRef,
+	useCallback,
+	useEffect,
+	memo,
+} from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	BottomSheet,
@@ -47,28 +53,58 @@ import {
 import styles from './style.scss';
 
 const URL_MEDIA_SOURCE = 'URL';
-
 const PICKER_OPENING_DELAY = 200;
 
-export class MediaUpload extends Component {
-	pickerTimeout;
+function URLInput( props ) {
+	return (
+		<BottomSheet
+			hideHeader
+			isVisible={ props.isVisible }
+			onClose={ props.onClose }
+		>
+			<PanelBody style={ styles[ 'media-upload__link-input' ] }>
+				<TextControl
+					// TODO: Switch to `true` (40px size) if possible
+					__next40pxDefaultSize={ false }
+					// eslint-disable-next-line jsx-a11y/no-autofocus
+					autoFocus
+					autoCapitalize="none"
+					autoCorrect={ false }
+					autoComplete={ Platform.isIOS ? 'url' : 'off' }
+					keyboardType="url"
+					label={ OPTION_INSERT_FROM_URL }
+					onChange={ props.onChange }
+					placeholder={ __( 'Type a URL' ) }
+					value={ props.value }
+				/>
+			</PanelBody>
+		</BottomSheet>
+	);
+}
 
-	constructor( props ) {
-		super( props );
-		this.onPickerPresent = this.onPickerPresent.bind( this );
-		this.onPickerSelect = this.onPickerSelect.bind( this );
-		this.getAllSources = this.getAllSources.bind( this );
-		this.state = {
-			url: '',
-			showURLInput: false,
-			otherMediaOptions: [],
-		};
-	}
+function MediaUpload( props ) {
+	const {
+		allowedTypes = [],
+		autoOpen,
+		onSelectURL,
+		onSelect,
+		isReplacingMedia,
+		multiple = false,
+		isAudioBlockMediaUploadEnabled,
+		__experimentalOnlyMediaLibrary,
+		render,
+	} = props;
 
-	componentDidMount() {
-		const { allowedTypes = [], autoOpen } = this.props;
-		getOtherMediaOptions( allowedTypes, ( otherMediaOptions ) => {
-			const otherMediaOptionsWithIcons = otherMediaOptions.map(
+	const [ url, setUrl ] = useState( '' );
+	const [ showURLInput, setShowURLInput ] = useState( false );
+	const [ otherMediaOptions, setOtherMediaOptions ] = useState( [] );
+
+	const pickerRef = useRef( null );
+	const pickerTimeout = useRef();
+
+	useEffect( () => {
+		getOtherMediaOptions( allowedTypes, ( otherMediaOptionsData ) => {
+			const otherMediaOptionsWithIcons = otherMediaOptionsData.map(
 				( option ) => {
 					return {
 						...option,
@@ -78,22 +114,20 @@ export class MediaUpload extends Component {
 					};
 				}
 			);
-
-			this.setState( { otherMediaOptions: otherMediaOptionsWithIcons } );
+			setOtherMediaOptions( otherMediaOptionsWithIcons );
 		} );
 
 		if ( autoOpen ) {
-			this.onPickerPresent();
+			onPickerPresent();
 		}
-	}
 
-	componentWillUnmount() {
-		clearTimeout( this.pickerTimeout );
-	}
+		return () => {
+			clearTimeout( pickerTimeout.current );
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [] );
 
-	getAllSources() {
-		const { onSelectURL } = this.props;
-
+	const getAllSources = useCallback( () => {
 		const cameraImageSource = {
 			id: mediaSources.deviceCamera, // ID is the value sent to native.
 			value: mediaSources.deviceCamera + '-IMAGE', // This is needed to diferenciate image-camera from video-camera sources.
@@ -153,17 +187,15 @@ export class MediaUpload extends Component {
 			...( onSelectURL ? [ urlSource ] : [] ),
 		];
 
-		return internalSources.concat( this.state.otherMediaOptions );
-	}
+		return internalSources.concat( otherMediaOptions );
+	}, [ onSelectURL, otherMediaOptions, allowedTypes ] );
 
-	getMediaOptionsItems() {
-		const {
-			allowedTypes = [],
-			__experimentalOnlyMediaLibrary,
-			isAudioBlockMediaUploadEnabled,
-		} = this.props;
+	const getChooseFromDeviceIcon = useCallback( () => {
+		return mobile;
+	}, [] );
 
-		return this.getAllSources()
+	const getMediaOptionsItems = useCallback( () => {
+		return getAllSources()
 			.filter( ( source ) => {
 				if ( __experimentalOnlyMediaLibrary ) {
 					return source.mediaLibrary;
@@ -185,163 +217,135 @@ export class MediaUpload extends Component {
 			.map( ( source ) => {
 				return {
 					...source,
-					icon: source.icon || this.getChooseFromDeviceIcon(),
+					icon: source.icon || getChooseFromDeviceIcon(),
 				};
 			} );
-	}
+	}, [
+		allowedTypes,
+		__experimentalOnlyMediaLibrary,
+		isAudioBlockMediaUploadEnabled,
+		getAllSources,
+		getChooseFromDeviceIcon,
+	] );
 
-	getChooseFromDeviceIcon() {
-		return mobile;
-	}
-
-	onPickerPresent() {
-		const { autoOpen } = this.props;
+	const onPickerPresent = useCallback( () => {
 		const isIOS = Platform.OS === 'ios';
 
-		if ( this.picker ) {
+		if ( pickerRef.current ) {
 			// the delay below is required because on iOS this action sheet gets dismissed by the close event of the Inserter
 			// so this delay allows the Inserter to be closed fully before presenting action sheet.
 			if ( autoOpen && isIOS ) {
-				this.pickerTimeout = setTimeout(
-					() => this.picker.presentPicker(),
-					PICKER_OPENING_DELAY
-				);
+				pickerTimeout.current = setTimeout( () => {
+					pickerRef.current.presentPicker();
+				}, PICKER_OPENING_DELAY );
 			} else {
-				this.picker.presentPicker();
+				pickerRef.current.presentPicker();
 			}
 		}
-	}
+	}, [ autoOpen ] );
 
-	onPickerSelect( value ) {
-		const { allowedTypes = [], onSelect, multiple = false } = this.props;
+	const onPickerSelect = useCallback(
+		( value ) => {
+			if ( value === URL_MEDIA_SOURCE ) {
+				setShowURLInput( true );
+				return;
+			}
 
-		if ( value === URL_MEDIA_SOURCE ) {
-			this.setState( { showURLInput: true } );
-			return;
+			const source = getAllSources()
+				.filter( ( s ) => s.value === value )
+				.shift();
+			const types = allowedTypes.filter( ( type ) =>
+				source.types.includes( type )
+			);
+
+			requestMediaPicker( source.id, types, multiple, ( media ) => {
+				if ( ( multiple && media ) || ( media && media.id ) ) {
+					onSelect( media );
+				}
+			} );
+		},
+		[ allowedTypes, onSelect, getAllSources, multiple ]
+	);
+
+	const isOneType = allowedTypes.length === 1;
+	const isImage = isOneType && allowedTypes.includes( MEDIA_TYPE_IMAGE );
+	const isVideo = isOneType && allowedTypes.includes( MEDIA_TYPE_VIDEO );
+	const isAudio = isOneType && allowedTypes.includes( MEDIA_TYPE_AUDIO );
+	const isAnyType = isOneType && allowedTypes.includes( MEDIA_TYPE_ANY );
+
+	const isImageOrVideo =
+		allowedTypes.length === 2 &&
+		allowedTypes.includes( MEDIA_TYPE_IMAGE ) &&
+		allowedTypes.includes( MEDIA_TYPE_VIDEO );
+
+	let pickerTitle;
+	if ( isImage ) {
+		if ( isReplacingMedia ) {
+			pickerTitle = __( 'Replace image' );
+		} else {
+			pickerTitle = multiple
+				? __( 'Choose images' )
+				: __( 'Choose image' );
 		}
-
-		const mediaSource = this.getAllSources()
-			.filter( ( source ) => source.value === value )
-			.shift();
-		const types = allowedTypes.filter( ( type ) =>
-			mediaSource.types.includes( type )
-		);
-
-		requestMediaPicker( mediaSource.id, types, multiple, ( media ) => {
-			if ( ( multiple && media ) || ( media && media.id ) ) {
-				onSelect( media );
-			}
-		} );
-	}
-
-	render() {
-		const { allowedTypes = [], isReplacingMedia, multiple } = this.props;
-		const isOneType = allowedTypes.length === 1;
-		const isImage = isOneType && allowedTypes.includes( MEDIA_TYPE_IMAGE );
-		const isVideo = isOneType && allowedTypes.includes( MEDIA_TYPE_VIDEO );
-		const isAudio = isOneType && allowedTypes.includes( MEDIA_TYPE_AUDIO );
-		const isAnyType = isOneType && allowedTypes.includes( MEDIA_TYPE_ANY );
-
-		const isImageOrVideo =
-			allowedTypes.length === 2 &&
-			allowedTypes.includes( MEDIA_TYPE_IMAGE ) &&
-			allowedTypes.includes( MEDIA_TYPE_VIDEO );
-
-		let pickerTitle;
-		if ( isImage ) {
-			if ( isReplacingMedia ) {
-				pickerTitle = __( 'Replace image' );
-			} else {
-				pickerTitle = multiple
-					? __( 'Choose images' )
-					: __( 'Choose image' );
-			}
-		} else if ( isVideo ) {
-			if ( isReplacingMedia ) {
-				pickerTitle = __( 'Replace video' );
-			} else {
-				pickerTitle = __( 'Choose video' );
-			}
-		} else if ( isImageOrVideo ) {
-			if ( isReplacingMedia ) {
-				pickerTitle = __( 'Replace image or video' );
-			} else {
-				pickerTitle = __( 'Choose image or video' );
-			}
-		} else if ( isAudio ) {
-			if ( isReplacingMedia ) {
-				pickerTitle = __( 'Replace audio' );
-			} else {
-				pickerTitle = __( 'Choose audio' );
-			}
-		} else if ( isAnyType ) {
+	} else if ( isVideo ) {
+		if ( isReplacingMedia ) {
+			pickerTitle = __( 'Replace video' );
+		} else {
+			pickerTitle = __( 'Choose video' );
+		}
+	} else if ( isImageOrVideo ) {
+		if ( isReplacingMedia ) {
+			pickerTitle = __( 'Replace image or video' );
+		} else {
+			pickerTitle = __( 'Choose image or video' );
+		}
+	} else if ( isAudio ) {
+		if ( isReplacingMedia ) {
+			pickerTitle = __( 'Replace audio' );
+		} else {
+			pickerTitle = __( 'Choose audio' );
+		}
+	} else if ( isAnyType ) {
+		pickerTitle = __( 'Choose file' );
+		if ( isReplacingMedia ) {
+			pickerTitle = __( 'Replace file' );
+		} else {
 			pickerTitle = __( 'Choose file' );
-			if ( isReplacingMedia ) {
-				pickerTitle = __( 'Replace file' );
-			} else {
-				pickerTitle = __( 'Choose file' );
-			}
 		}
+	}
 
-		const getMediaOptions = () => (
+	const getMediaOptions = useCallback( () => {
+		return (
 			<Picker
 				title={ pickerTitle }
 				hideCancelButton
-				ref={ ( instance ) => ( this.picker = instance ) }
-				options={ this.getMediaOptionsItems() }
-				onChange={ this.onPickerSelect }
+				ref={ ( instance ) => ( pickerRef.current = instance ) }
+				options={ getMediaOptionsItems() }
+				onChange={ onPickerSelect }
 				testID="media-options-picker"
 			/>
 		);
+	}, [ pickerTitle, getMediaOptionsItems, onPickerSelect ] );
 
-		return (
-			<>
-				<URLInput
-					isVisible={ this.state.showURLInput }
-					onClose={ () => {
-						if ( this.state.url !== '' ) {
-							this.props.onSelectURL( this.state.url );
-						}
-						this.setState( { showURLInput: false, url: '' } );
-					} }
-					onChange={ ( url ) => {
-						this.setState( { url } );
-					} }
-					value={ this.state.url }
-				/>
-				{ this.props.render( {
-					open: this.onPickerPresent,
-					getMediaOptions,
-				} ) }
-			</>
-		);
-	}
-}
-
-function URLInput( props ) {
 	return (
-		<BottomSheet
-			hideHeader
-			isVisible={ props.isVisible }
-			onClose={ props.onClose }
-		>
-			<PanelBody style={ styles[ 'media-upload__link-input' ] }>
-				<TextControl
-					// TODO: Switch to `true` (40px size) if possible
-					__next40pxDefaultSize={ false }
-					// eslint-disable-next-line jsx-a11y/no-autofocus
-					autoFocus
-					autoCapitalize="none"
-					autoCorrect={ false }
-					autoComplete={ Platform.isIOS ? 'url' : 'off' }
-					keyboardType="url"
-					label={ OPTION_INSERT_FROM_URL }
-					onChange={ props.onChange }
-					placeholder={ __( 'Type a URL' ) }
-					value={ props.value }
-				/>
-			</PanelBody>
-		</BottomSheet>
+		<>
+			<URLInput
+				isVisible={ showURLInput }
+				onClose={ () => {
+					if ( url !== '' ) {
+						props.onSelectURL( url );
+					}
+					setShowURLInput( false );
+					setUrl( '' );
+				} }
+				onChange={ setUrl }
+				value={ url }
+			/>
+			{ render( {
+				open: onPickerPresent,
+				getMediaOptions,
+			} ) }
+		</>
 	);
 }
 
@@ -353,4 +357,4 @@ export default compose( [
 				capabilities?.isAudioBlockMediaUploadEnabled === true,
 		};
 	} ),
-] )( MediaUpload );
+] )( memo( MediaUpload ) );
