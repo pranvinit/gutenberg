@@ -12,6 +12,8 @@ import {
 import { privateApis as blockEditorPrivateApis } from '@wordpress/block-editor';
 import { settings } from '@wordpress/icons';
 import { useContext } from '@wordpress/element';
+import { useDispatch } from '@wordpress/data';
+import { store as editorStore } from '@wordpress/editor';
 
 /**
  * Internal dependencies
@@ -49,6 +51,7 @@ function FontFamilies() {
 		undefined,
 		'base'
 	);
+	const { switchEditorMode } = useDispatch( editorStore );
 	const themeFonts = mapFontsWithSource( fontFamilies?.theme, 'theme' );
 	const customFonts = mapFontsWithSource( fontFamilies?.custom, 'custom' );
 	const activeFonts = [ ...themeFonts, ...customFonts ].sort( ( a, b ) =>
@@ -73,7 +76,10 @@ function FontFamilies() {
 				<HStack justify="space-between">
 					<Subtitle level={ 3 }>{ __( 'Fonts' ) }</Subtitle>
 					<Button
-						onClick={ () => setModalTabOpen( 'installed-fonts' ) }
+						onClick={ () => {
+							switchEditorMode( 'visual' );
+							setModalTabOpen( 'installed-fonts' );
+						} }
 						label={ __( 'Manage fonts' ) }
 						icon={ settings }
 						size="small"
@@ -103,6 +109,7 @@ function FontFamilies() {
 							variant="secondary"
 							__next40pxDefaultSize
 							onClick={ () => {
+								switchEditorMode( 'visual' );
 								setModalTabOpen(
 									hasInstalledFonts
 										? 'installed-fonts'
