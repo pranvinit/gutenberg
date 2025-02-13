@@ -190,7 +190,7 @@ export default function CoverInspectorControls( {
 	return (
 		<>
 			<InspectorControls>
-				{ ( !! url || isSiteEditor ) && (
+				{ ( !! url || ( useFeaturedImage && isSiteEditor ) ) && (
 					<ToolsPanel
 						label={ __( 'Settings' ) }
 						resetAll={ () => {
