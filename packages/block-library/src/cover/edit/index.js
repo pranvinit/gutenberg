@@ -24,6 +24,7 @@ import { __ } from '@wordpress/i18n';
 import { useSelect, useDispatch } from '@wordpress/data';
 import { isBlobURL } from '@wordpress/blob';
 import { store as noticesStore } from '@wordpress/notices';
+import { getPath } from '@wordpress/url';
 
 /**
  * Internal dependencies
@@ -126,6 +127,10 @@ function CoverEdit( {
 			};
 		},
 		[ featuredImage, useFeaturedImage ]
+	);
+
+	const isSiteEditor = getPath( window.location.href )?.includes(
+		'site-editor.php'
 	);
 	const mediaUrl =
 		media?.media_details?.sizes?.[ sizeSlug ]?.source_url ??
@@ -390,6 +395,7 @@ function CoverEdit( {
 	const currentSettings = {
 		isVideoBackground,
 		isImageBackground,
+		isSiteEditor,
 		mediaElement,
 		hasInnerBlocks,
 		url,
