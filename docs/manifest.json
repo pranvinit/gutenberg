@@ -1680,6 +1680,12 @@
 		"parent": "packages"
 	},
 	{
+		"title": "@wordpress/edit-this",
+		"slug": "packages-edit-this",
+		"markdown_source": "../packages/edit-this/README.md",
+		"parent": "packages"
+	},
+	{
 		"title": "@wordpress/edit-widgets",
 		"slug": "packages-edit-widgets",
 		"markdown_source": "../packages/edit-widgets/README.md",

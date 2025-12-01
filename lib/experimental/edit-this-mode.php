@@ -40,7 +40,7 @@ function gutenberg_is_edit_this_mode_enabled() {
 
 	// Check if user has enabled Edit This mode.
 	// This will be stored in a cookie to persist across page loads.
-	$edit_mode_enabled = isset( $_COOKIE['gutenberg_edit_this_mode'] ) && 
+	$edit_mode_enabled = isset( $_COOKIE['gutenberg_edit_this_mode'] ) &&
 						 '1' === $_COOKIE['gutenberg_edit_this_mode'];
 
 	/**
@@ -266,10 +266,10 @@ function gutenberg_add_edit_this_mode_admin_bar_toggle( $wp_admin_bar ) {
 					toggle.addEventListener( 'click', function( e ) {
 						e.preventDefault();
 						const isEnabled = toggle.classList.contains( 'is-enabled' );
-						
+
 						// Set cookie.
 						document.cookie = 'gutenberg_edit_this_mode=' + ( isEnabled ? '0' : '1' ) + '; path=/; max-age=31536000; SameSite=Lax';
-						
+
 						// Reload page to apply changes.
 						window.location.reload();
 					} );
