@@ -1,0 +1,88 @@
+/**
+ * Styles for Edit This mode.
+ * Provides visual styling for edit buttons overlaid on template parts and post content.
+ */
+
+.gutenberg-edit-this-wrapper {
+	position: relative;
+
+	&:hover {
+		.gutenberg-edit-this-button {
+			opacity: 1;
+			visibility: visible;
+		}
+	}
+}
+
+.gutenberg-edit-this-button {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	z-index: 99999;
+
+	// Button styling.
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 8px 12px;
+	background: #1e1e1e;
+	color: #fff;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 1;
+	text-decoration: none;
+	border: none;
+	border-radius: 2px;
+	cursor: pointer;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+	// Transitions.
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out, background 0.2s ease-in-out;
+
+	&:hover {
+		background: #2271b1;
+		color: #fff;
+	}
+
+	&:focus {
+		opacity: 1;
+		visibility: visible;
+		outline: 2px solid #2271b1;
+		outline-offset: 2px;
+	}
+
+	&:active {
+		background: #135e96;
+	}
+}
+
+// Always show buttons when keyboard navigating.
+.gutenberg-edit-this-button:focus-visible {
+	opacity: 1;
+	visibility: visible;
+}
+
+// Ensure buttons are accessible even without hover.
+@media (hover: none) {
+	.gutenberg-edit-this-button {
+		opacity: 0.8;
+		visibility: visible;
+	}
+}
+
+// High contrast mode support.
+@media (prefers-contrast: high) {
+	.gutenberg-edit-this-button {
+		border: 2px solid currentColor;
+	}
+}
+
+// Reduced motion support.
+@media (prefers-reduced-motion: reduce) {
+	.gutenberg-edit-this-button {
+		transition: none;
+	}
+}

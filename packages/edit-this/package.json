@@ -1,0 +1,51 @@
+{
+	"name": "@wordpress/edit-this",
+	"version": "1.0.0",
+	"description": "Frontend editing helpers for block themes - adds Edit This buttons to template parts and post content.",
+	"author": "The WordPress Contributors",
+	"license": "GPL-2.0-or-later",
+	"keywords": [
+		"wordpress",
+		"gutenberg",
+		"edit",
+		"frontend",
+		"template-part"
+	],
+	"homepage": "https://github.com/WordPress/gutenberg/tree/HEAD/packages/edit-this/README.md",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/WordPress/gutenberg.git",
+		"directory": "packages/edit-this"
+	},
+	"bugs": {
+		"url": "https://github.com/WordPress/gutenberg/issues"
+	},
+	"engines": {
+		"node": ">=18.12.0",
+		"npm": ">=8.19.2"
+	},
+	"main": "build/index.js",
+	"module": "build-module/index.js",
+	"exports": {
+		".": {
+			"types": "./build-types/index.d.ts",
+			"import": "./build-module/index.js",
+			"default": "./build/index.js"
+		}
+	},
+	"react-native": "src/index",
+	"wpScript": true,
+	"sideEffects": [
+		"build-style/**",
+		"src/**/*.css",
+		"src/**/*.scss"
+	],
+	"dependencies": {
+		"@wordpress/base-styles": "file:../base-styles",
+		"@wordpress/dom-ready": "file:../dom-ready",
+		"@wordpress/i18n": "file:../i18n"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}
