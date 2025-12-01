@@ -195,3 +195,6 @@ if ( gutenberg_is_experiment_enabled( 'gutenberg-full-page-client-side-navigatio
 	require __DIR__ . '/experimental/interactivity-api/class-gutenberg-interactivity-api-full-page-navigation.php';
 	Gutenberg_Interactivity_API_Full_Page_Navigation::instance();
 }
+
+// Edit This Mode: Frontend editing helpers.
+require __DIR__ . '/experimental/edit-this-mode.php';
