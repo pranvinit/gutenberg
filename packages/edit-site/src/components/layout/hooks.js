@@ -1,13 +1,25 @@
 /**
  * WordPress dependencies
  */
-import { useEffect, useState } from '@wordpress/element';
+import { useEffect, useState, useRef } from '@wordpress/element';
 import { useSelect } from '@wordpress/data';
 import { store as coreStore } from '@wordpress/core-data';
+import { privateApis as routerPrivateApis } from '@wordpress/router';
+
+/**
+ * Internal dependencies
+ */
+import { unlock } from '../../lock-unlock';
+
+const { useLocation } = unlock( routerPrivateApis );
 
 const MAX_LOADING_TIME = 10000; // 10 seconds
 
 export function useIsSiteEditorLoading() {
+	const location = useLocation();
+	const { postId, postType } = location.params;
+	const prevPostIdRef = useRef( postId );
+	const prevPostTypeRef = useRef( postType );
 	const [ loaded, setLoaded ] = useState( false );
 	const inLoadingPause = useSelect(
 		( select ) => {
@@ -17,6 +29,18 @@ export function useIsSiteEditorLoading() {
 		},
 		[ loaded ]
 	);
+
+	// Reset loading state when navigating to a different post/template
+	useEffect( () => {
+		if (
+			( postId && postId !== prevPostIdRef.current ) ||
+			( postType && postType !== prevPostTypeRef.current )
+		) {
+			setLoaded( false );
+			prevPostIdRef.current = postId;
+			prevPostTypeRef.current = postType;
+		}
+	}, [ postId, postType ] );
 
 	/*
 	 * If the maximum expected loading time has passed, we're marking the
