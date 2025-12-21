@@ -32,7 +32,11 @@ export function useIsSiteEditorLoading() {
 		[ loaded ]
 	);
 
-	// Reset loading state when navigating to a different post/template or canvas mode
+	// Reset loading state when navigating to a different post/template or canvas mode.
+	// This ensures the canvas properly initializes when editing subsequent template parts
+	// or templates, preventing the issue where the canvas doesn't appear after using
+	// the command center back button to navigate between template parts.
+	// See: https://github.com/WordPress/gutenberg/issues/74048
 	useEffect( () => {
 		const hasPostChanged = postId && postId !== prevPostIdRef.current;
 		const hasPostTypeChanged =
