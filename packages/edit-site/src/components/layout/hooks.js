@@ -18,8 +18,10 @@ const MAX_LOADING_TIME = 10000; // 10 seconds
 export function useIsSiteEditorLoading() {
 	const location = useLocation();
 	const { postId, postType } = location.params;
+	const { canvas } = location.query;
 	const prevPostIdRef = useRef( postId );
 	const prevPostTypeRef = useRef( postType );
+	const prevCanvasRef = useRef( canvas );
 	const [ loaded, setLoaded ] = useState( false );
 	const inLoadingPause = useSelect(
 		( select ) => {
@@ -30,17 +32,21 @@ export function useIsSiteEditorLoading() {
 		[ loaded ]
 	);
 
-	// Reset loading state when navigating to a different post/template
+	// Reset loading state when navigating to a different post/template or canvas mode
 	useEffect( () => {
-		if (
-			( postId && postId !== prevPostIdRef.current ) ||
-			( postType && postType !== prevPostTypeRef.current )
-		) {
+		const hasPostChanged = postId && postId !== prevPostIdRef.current;
+		const hasPostTypeChanged =
+			postType && postType !== prevPostTypeRef.current;
+		const hasCanvasChanged =
+			canvas === 'edit' && canvas !== prevCanvasRef.current;
+
+		if ( hasPostChanged || hasPostTypeChanged || hasCanvasChanged ) {
 			setLoaded( false );
 			prevPostIdRef.current = postId;
 			prevPostTypeRef.current = postType;
+			prevCanvasRef.current = canvas;
 		}
-	}, [ postId, postType ] );
+	}, [ postId, postType, canvas ] );
 
 	/*
 	 * If the maximum expected loading time has passed, we're marking the
