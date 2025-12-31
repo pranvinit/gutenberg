@@ -1230,6 +1230,12 @@
 		"parent": "components"
 	},
 	{
+		"title": "Skeleton",
+		"slug": "skeleton",
+		"markdown_source": "../packages/components/src/skeleton/README.md",
+		"parent": "components"
+	},
+	{
 		"title": "SlotFill",
 		"slug": "slot-fill",
 		"markdown_source": "../packages/components/src/slot-fill/README.md",
