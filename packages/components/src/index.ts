@@ -161,6 +161,7 @@ export { default as ResponsiveWrapper } from './responsive-wrapper';
 export { default as SandBox } from './sandbox';
 export { default as SearchControl } from './search-control';
 export { default as SelectControl } from './select-control';
+export { default as Skeleton } from './skeleton';
 export { default as Snackbar } from './snackbar';
 export { default as SnackbarList } from './snackbar/list';
 export { Spacer as __experimentalSpacer } from './spacer';
