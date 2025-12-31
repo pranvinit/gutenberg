@@ -1,6 +1,9 @@
 {
 	"route": {
 		"path": "/",
-		"page": "gutenberg-boot"
+		"page": "site-editor-v2"
+	},
+	"dependencies": {
+		"@wordpress/i18n": "file:../i18n"
 	}
 }
