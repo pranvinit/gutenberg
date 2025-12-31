@@ -916,6 +916,9 @@
 				"core/block": {
 					"$ref": "#/definitions/settingsPropertiesComplete"
 				},
+				"core/breadcrumbs": {
+					"$ref": "#/definitions/settingsPropertiesComplete"
+				},
 				"core/button": {
 					"$ref": "#/definitions/settingsPropertiesComplete"
 				},
@@ -1967,6 +1970,9 @@
 				"core/block": {
 					"$ref": "#/definitions/stylesPropertiesAndElementsComplete"
 				},
+				"core/breadcrumbs": {
+					"$ref": "#/definitions/stylesPropertiesAndElementsComplete"
+				},
 				"core/button": {
 					"allOf": [
 						{
@@ -2416,6 +2422,9 @@
 					"$ref": "#/definitions/stylesVariationBlockPropertiesComplete"
 				},
 				"core/block": {
+					"$ref": "#/definitions/stylesVariationBlockPropertiesComplete"
+				},
+				"core/breadcrumbs": {
 					"$ref": "#/definitions/stylesVariationBlockPropertiesComplete"
 				},
 				"core/button": {

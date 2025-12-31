@@ -1,4 +1,9 @@
 /**
+ * External dependencies
+ */
+import clsx from 'clsx';
+
+/**
  * WordPress dependencies
  */
 import { getBlockSupport } from '@wordpress/blocks';
@@ -20,10 +25,6 @@ import { useSettingsForBlockElement } from '../components/global-styles/hooks';
 import { getValueFromObjectPath, setImmutably } from '../utils/object';
 import { store as blockEditorStore } from '../store';
 import { unlock } from '../lock-unlock';
-/**
- * External dependencies
- */
-import clsx from 'clsx';
 
 /**
  * Removed falsy values from nested object.
