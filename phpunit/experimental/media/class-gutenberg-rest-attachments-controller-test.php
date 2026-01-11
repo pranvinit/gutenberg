@@ -311,4 +311,316 @@ class Gutenberg_REST_Attachments_Controller_Test extends WP_Test_REST_Post_Type_
 		$this->assertStringNotContainsString( '2017/02', $data['source_url'] );
 		$this->assertStringContainsString( $subdir, $data['source_url'] );
 	}
+
+	/**
+	 * Tests that the sideload endpoint requires upload_files capability.
+	 *
+	 * @covers ::sideload_item_permissions_check
+	 */
+	public function test_sideload_item_requires_upload_files_capability() {
+		// Create a user without upload_files capability.
+		$subscriber_id = self::factory()->user->create(
+			array(
+				'role' => 'subscriber',
+			)
+		);
+
+		wp_set_current_user( $subscriber_id );
+
+		$attachment_id = self::factory()->attachment->create_object(
+			DIR_TESTDATA . '/images/canola.jpg',
+			0,
+			array(
+				'post_mime_type' => 'image/jpeg',
+				'post_author'    => self::$admin_id,
+			)
+		);
+
+		$request = new WP_REST_Request( 'POST', "/wp/v2/media/$attachment_id/sideload" );
+		$request->set_header( 'Content-Type', 'image/jpeg' );
+		$request->set_header( 'Content-Disposition', 'attachment; filename=canola-150x150.jpg' );
+		$request->set_param( 'image_size', 'thumbnail' );
+
+		$request->set_body( file_get_contents( DIR_TESTDATA . '/images/canola.jpg' ) );
+		$response = rest_get_server()->dispatch( $request );
+
+		$this->assertErrorResponse( 'rest_cannot_edit', $response, 403 );
+
+		wp_delete_user( $subscriber_id );
+	}
+
+	/**
+	 * Tests dimension validation with expected dimensions.
+	 *
+	 * @covers ::sideload_item
+	 */
+	public function test_sideload_item_with_dimension_validation() {
+		wp_set_current_user( self::$admin_id );
+
+		$attachment_id = self::factory()->attachment->create_object(
+			DIR_TESTDATA . '/images/canola.jpg',
+			0,
+			array(
+				'post_mime_type' => 'image/jpeg',
+				'post_excerpt'   => 'A sample caption',
+			)
+		);
+
+		wp_update_attachment_metadata(
+			$attachment_id,
+			wp_generate_attachment_metadata( $attachment_id, DIR_TESTDATA . '/images/canola.jpg' )
+		);
+
+		// Get actual dimensions of test image.
+		$image_data    = wp_getimagesize( DIR_TESTDATA . '/images/canola.jpg' );
+		$actual_width  = $image_data[0];
+		$actual_height = $image_data[1];
+
+		// Test with correct expected dimensions.
+		$request = new WP_REST_Request( 'POST', "/wp/v2/media/$attachment_id/sideload" );
+		$request->set_header( 'Content-Type', 'image/jpeg' );
+		$request->set_header( 'Content-Disposition', 'attachment; filename=canola-test-validation.jpg' );
+		$request->set_param( 'image_size', 'medium' );
+		$request->set_param( 'validate_dimensions', true );
+		$request->set_param( 'expected_width', $actual_width );
+		$request->set_param( 'expected_height', $actual_height );
+
+		$request->set_body( file_get_contents( DIR_TESTDATA . '/images/canola.jpg' ) );
+		$response = rest_get_server()->dispatch( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+	}
+
+	/**
+	 * Tests dimension validation fails with incorrect expected dimensions.
+	 *
+	 * @covers ::sideload_item
+	 */
+	public function test_sideload_item_dimension_validation_fails_on_mismatch() {
+		wp_set_current_user( self::$admin_id );
+
+		$attachment_id = self::factory()->attachment->create_object(
+			DIR_TESTDATA . '/images/canola.jpg',
+			0,
+			array(
+				'post_mime_type' => 'image/jpeg',
+				'post_excerpt'   => 'A sample caption',
+			)
+		);
+
+		wp_update_attachment_metadata(
+			$attachment_id,
+			wp_generate_attachment_metadata( $attachment_id, DIR_TESTDATA . '/images/canola.jpg' )
+		);
+
+		// Test with incorrect expected dimensions.
+		$request = new WP_REST_Request( 'POST', "/wp/v2/media/$attachment_id/sideload" );
+		$request->set_header( 'Content-Type', 'image/jpeg' );
+		$request->set_header( 'Content-Disposition', 'attachment; filename=canola-wrong-dims.jpg' );
+		$request->set_param( 'image_size', 'medium' );
+		$request->set_param( 'validate_dimensions', true );
+		$request->set_param( 'expected_width', 9999 );
+		$request->set_param( 'expected_height', 9999 );
+
+		$request->set_body( file_get_contents( DIR_TESTDATA . '/images/canola.jpg' ) );
+		$response = rest_get_server()->dispatch( $request );
+
+		$this->assertErrorResponse( 'rest_invalid_image_dimensions', $response, 400 );
+	}
+
+	/**
+	 * Tests that sideloading an original image populates image metadata.
+	 *
+	 * @covers ::sideload_item
+	 */
+	public function test_sideload_item_original_populates_metadata() {
+		wp_set_current_user( self::$admin_id );
+
+		$attachment_id = self::factory()->attachment->create_object(
+			DIR_TESTDATA . '/images/canola.jpg',
+			0,
+			array(
+				'post_mime_type' => 'image/jpeg',
+				'post_excerpt'   => 'A sample caption',
+			)
+		);
+
+		// Start with minimal metadata.
+		wp_update_attachment_metadata( $attachment_id, array() );
+
+		$request = new WP_REST_Request( 'POST', "/wp/v2/media/$attachment_id/sideload" );
+		$request->set_header( 'Content-Type', 'image/jpeg' );
+		$request->set_header( 'Content-Disposition', 'attachment; filename=canola-original.jpg' );
+		$request->set_param( 'image_size', 'original' );
+
+		$request->set_body( file_get_contents( DIR_TESTDATA . '/images/canola.jpg' ) );
+		$response = rest_get_server()->dispatch( $request );
+		$data     = $response->get_data();
+
+		$this->assertSame( 200, $response->get_status() );
+
+		$metadata = wp_get_attachment_metadata( $attachment_id );
+
+		$this->assertArrayHasKey( 'original_image', $metadata );
+		$this->assertArrayHasKey( 'width', $metadata );
+		$this->assertArrayHasKey( 'height', $metadata );
+		$this->assertGreaterThan( 0, $metadata['width'] );
+		$this->assertGreaterThan( 0, $metadata['height'] );
+	}
+
+	/**
+	 * Tests that sideloading populates image_meta from EXIF data.
+	 *
+	 * @covers ::sideload_item
+	 */
+	public function test_sideload_item_populates_image_meta() {
+		wp_set_current_user( self::$admin_id );
+
+		$attachment_id = self::factory()->attachment->create_object(
+			DIR_TESTDATA . '/images/canola.jpg',
+			0,
+			array(
+				'post_mime_type' => 'image/jpeg',
+				'post_excerpt'   => 'A sample caption',
+			)
+		);
+
+		// Start with minimal metadata.
+		wp_update_attachment_metadata( $attachment_id, array() );
+
+		$request = new WP_REST_Request( 'POST', "/wp/v2/media/$attachment_id/sideload" );
+		$request->set_header( 'Content-Type', 'image/jpeg' );
+		$request->set_header( 'Content-Disposition', 'attachment; filename=canola-original-meta.jpg' );
+		$request->set_param( 'image_size', 'original' );
+
+		$request->set_body( file_get_contents( DIR_TESTDATA . '/images/canola.jpg' ) );
+		$response = rest_get_server()->dispatch( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+
+		$metadata = wp_get_attachment_metadata( $attachment_id );
+
+		// Check that image_meta is populated with default structure.
+		$this->assertArrayHasKey( 'image_meta', $metadata );
+		$this->assertIsArray( $metadata['image_meta'] );
+		$this->assertArrayHasKey( 'aperture', $metadata['image_meta'] );
+		$this->assertArrayHasKey( 'camera', $metadata['image_meta'] );
+		$this->assertArrayHasKey( 'orientation', $metadata['image_meta'] );
+	}
+
+	/**
+	 * Tests that sideloading updates size metadata with filesize.
+	 *
+	 * @covers ::sideload_item
+	 */
+	public function test_sideload_item_includes_filesize_in_metadata() {
+		wp_set_current_user( self::$admin_id );
+
+		$attachment_id = self::factory()->attachment->create_object(
+			DIR_TESTDATA . '/images/canola.jpg',
+			0,
+			array(
+				'post_mime_type' => 'image/jpeg',
+				'post_excerpt'   => 'A sample caption',
+			)
+		);
+
+		wp_update_attachment_metadata(
+			$attachment_id,
+			wp_generate_attachment_metadata( $attachment_id, DIR_TESTDATA . '/images/canola.jpg' )
+		);
+
+		$request = new WP_REST_Request( 'POST', "/wp/v2/media/$attachment_id/sideload" );
+		$request->set_header( 'Content-Type', 'image/jpeg' );
+		$request->set_header( 'Content-Disposition', 'attachment; filename=canola-with-filesize.jpg' );
+		$request->set_param( 'image_size', 'thumbnail' );
+
+		$request->set_body( file_get_contents( DIR_TESTDATA . '/images/canola.jpg' ) );
+		$response = rest_get_server()->dispatch( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+
+		$metadata = wp_get_attachment_metadata( $attachment_id );
+
+		$this->assertArrayHasKey( 'sizes', $metadata );
+		$this->assertArrayHasKey( 'thumbnail', $metadata['sizes'] );
+		$this->assertArrayHasKey( 'filesize', $metadata['sizes']['thumbnail'] );
+		$this->assertGreaterThan( 0, $metadata['sizes']['thumbnail']['filesize'] );
+	}
+
+	/**
+	 * Tests that dimension validation can be disabled (default behavior).
+	 *
+	 * @covers ::sideload_item
+	 */
+	public function test_sideload_item_without_dimension_validation() {
+		wp_set_current_user( self::$admin_id );
+
+		$attachment_id = self::factory()->attachment->create_object(
+			DIR_TESTDATA . '/images/canola.jpg',
+			0,
+			array(
+				'post_mime_type' => 'image/jpeg',
+				'post_excerpt'   => 'A sample caption',
+			)
+		);
+
+		wp_update_attachment_metadata(
+			$attachment_id,
+			wp_generate_attachment_metadata( $attachment_id, DIR_TESTDATA . '/images/canola.jpg' )
+		);
+
+		// Without validate_dimensions, any expected dimensions should be ignored.
+		$request = new WP_REST_Request( 'POST', "/wp/v2/media/$attachment_id/sideload" );
+		$request->set_header( 'Content-Type', 'image/jpeg' );
+		$request->set_header( 'Content-Disposition', 'attachment; filename=canola-no-validation.jpg' );
+		$request->set_param( 'image_size', 'medium' );
+		$request->set_param( 'validate_dimensions', false );
+		$request->set_param( 'expected_width', 9999 );
+		$request->set_param( 'expected_height', 9999 );
+
+		$request->set_body( file_get_contents( DIR_TESTDATA . '/images/canola.jpg' ) );
+		$response = rest_get_server()->dispatch( $request );
+
+		// Should succeed despite mismatched expected dimensions when validation is disabled.
+		$this->assertSame( 200, $response->get_status() );
+	}
+
+	/**
+	 * Tests sideload with convert_format parameter.
+	 *
+	 * @covers ::sideload_item
+	 */
+	public function test_sideload_item_with_convert_format_disabled() {
+		wp_set_current_user( self::$admin_id );
+
+		$attachment_id = self::factory()->attachment->create_object(
+			DIR_TESTDATA . '/images/canola.jpg',
+			0,
+			array(
+				'post_mime_type' => 'image/jpeg',
+				'post_excerpt'   => 'A sample caption',
+			)
+		);
+
+		wp_update_attachment_metadata(
+			$attachment_id,
+			wp_generate_attachment_metadata( $attachment_id, DIR_TESTDATA . '/images/canola.jpg' )
+		);
+
+		$request = new WP_REST_Request( 'POST', "/wp/v2/media/$attachment_id/sideload" );
+		$request->set_header( 'Content-Type', 'image/jpeg' );
+		$request->set_header( 'Content-Disposition', 'attachment; filename=canola-no-convert.jpg' );
+		$request->set_param( 'image_size', 'medium' );
+		$request->set_param( 'convert_format', false );
+
+		$request->set_body( file_get_contents( DIR_TESTDATA . '/images/canola.jpg' ) );
+		$response = rest_get_server()->dispatch( $request );
+		$data     = $response->get_data();
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertArrayHasKey( 'media_details', $data );
+		$this->assertArrayHasKey( 'sizes', $data['media_details'] );
+		$this->assertArrayHasKey( 'medium', $data['media_details']['sizes'] );
+	}
 }

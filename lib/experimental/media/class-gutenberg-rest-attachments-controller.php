@@ -33,15 +33,35 @@ class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controll
 					'callback'            => array( $this, 'sideload_item' ),
 					'permission_callback' => array( $this, 'sideload_item_permissions_check' ),
 					'args'                => array(
-						'id'         => array(
+						'id'               => array(
 							'description' => __( 'Unique identifier for the attachment.', 'gutenberg' ),
 							'type'        => 'integer',
 						),
-						'image_size' => array(
+						'image_size'       => array(
 							'description' => __( 'Image size.', 'gutenberg' ),
 							'type'        => 'string',
 							'enum'        => $valid_image_sizes,
 							'required'    => true,
+						),
+						'convert_format'   => array(
+							'type'        => 'boolean',
+							'default'     => true,
+							'description' => __( 'Whether to convert image formats.', 'gutenberg' ),
+						),
+						'expected_width'   => array(
+							'description' => __( 'Expected width of the uploaded image in pixels.', 'gutenberg' ),
+							'type'        => 'integer',
+							'minimum'     => 1,
+						),
+						'expected_height'  => array(
+							'description' => __( 'Expected height of the uploaded image in pixels.', 'gutenberg' ),
+							'type'        => 'integer',
+							'minimum'     => 1,
+						),
+						'validate_dimensions' => array(
+							'description' => __( 'Whether to validate that uploaded dimensions match expected dimensions.', 'gutenberg' ),
+							'type'        => 'boolean',
+							'default'     => false,
 						),
 					),
 				),
@@ -185,7 +205,203 @@ class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controll
 	 * @return true|WP_Error True if the request has access to update the item, WP_Error object otherwise.
 	 */
 	public function sideload_item_permissions_check( $request ) {
-		return $this->edit_media_item_permissions_check( $request );
+		$post = $this->get_post( $request['id'] );
+
+		if ( is_wp_error( $post ) ) {
+			return $post;
+		}
+
+		// Check if user can edit the attachment.
+		$edit_check = $this->edit_media_item_permissions_check( $request );
+
+		if ( is_wp_error( $edit_check ) ) {
+			return $edit_check;
+		}
+
+		// Additional check: user must have upload_files capability.
+		if ( ! current_user_can( 'upload_files' ) ) {
+			return new WP_Error(
+				'rest_cannot_sideload',
+				__( 'Sorry, you are not allowed to upload files.', 'gutenberg' ),
+				array( 'status' => rest_authorization_required_code() )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Validates that uploaded image dimensions match expected dimensions.
+	 *
+	 * @param int      $actual_width    Actual width of the uploaded image.
+	 * @param int      $actual_height   Actual height of the uploaded image.
+	 * @param int|null $expected_width  Expected width, or null to skip validation.
+	 * @param int|null $expected_height Expected height, or null to skip validation.
+	 * @return true|WP_Error True if dimensions are valid, WP_Error otherwise.
+	 */
+	private function validate_image_dimensions( $actual_width, $actual_height, $expected_width, $expected_height ) {
+		if ( null !== $expected_width && $actual_width !== $expected_width ) {
+			return new WP_Error(
+				'rest_invalid_image_dimensions',
+				sprintf(
+					/* translators: 1: Expected width, 2: Actual width. */
+					__( 'Image width does not match expected dimensions. Expected %1$d pixels, got %2$d pixels.', 'gutenberg' ),
+					$expected_width,
+					$actual_width
+				),
+				array( 'status' => 400 )
+			);
+		}
+
+		if ( null !== $expected_height && $actual_height !== $expected_height ) {
+			return new WP_Error(
+				'rest_invalid_image_dimensions',
+				sprintf(
+					/* translators: 1: Expected height, 2: Actual height. */
+					__( 'Image height does not match expected dimensions. Expected %1$d pixels, got %2$d pixels.', 'gutenberg' ),
+					$expected_height,
+					$actual_height
+				),
+				array( 'status' => 400 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Validates uploaded size dimensions against registered image subsizes.
+	 *
+	 * @param string $image_size   The image size name.
+	 * @param int    $actual_width  Actual width of the uploaded image.
+	 * @param int    $actual_height Actual height of the uploaded image.
+	 * @return true|WP_Error True if dimensions are valid for the size, WP_Error otherwise.
+	 */
+	private function validate_size_against_registered( $image_size, $actual_width, $actual_height ) {
+		// Skip validation for special sizes.
+		if ( in_array( $image_size, array( 'original', 'full' ), true ) ) {
+			return true;
+		}
+
+		$registered_sizes = wp_get_registered_image_subsizes();
+
+		if ( ! isset( $registered_sizes[ $image_size ] ) ) {
+			// If size is not registered, allow it but don't validate dimensions.
+			return true;
+		}
+
+		$registered_size = $registered_sizes[ $image_size ];
+		$expected_width  = (int) $registered_size['width'];
+		$expected_height = (int) $registered_size['height'];
+		$crop            = ! empty( $registered_size['crop'] );
+
+		// For cropped images, dimensions should match exactly (unless set to 0 which means any).
+		if ( $crop ) {
+			if ( 0 !== $expected_width && $actual_width !== $expected_width ) {
+				return new WP_Error(
+					'rest_invalid_subsize_dimensions',
+					sprintf(
+						/* translators: 1: Size name, 2: Expected width, 3: Actual width. */
+						__( 'Image size "%1$s" width mismatch. Expected %2$d pixels, got %3$d pixels.', 'gutenberg' ),
+						$image_size,
+						$expected_width,
+						$actual_width
+					),
+					array( 'status' => 400 )
+				);
+			}
+
+			if ( 0 !== $expected_height && $actual_height !== $expected_height ) {
+				return new WP_Error(
+					'rest_invalid_subsize_dimensions',
+					sprintf(
+						/* translators: 1: Size name, 2: Expected height, 3: Actual height. */
+						__( 'Image size "%1$s" height mismatch. Expected %2$d pixels, got %3$d pixels.', 'gutenberg' ),
+						$image_size,
+						$expected_height,
+						$actual_height
+					),
+					array( 'status' => 400 )
+				);
+			}
+		} else {
+			// For non-cropped images, at least one dimension should be within the maximum.
+			// Either width equals expected OR height equals expected (aspect ratio preservation).
+			$width_valid  = 0 === $expected_width || $actual_width <= $expected_width;
+			$height_valid = 0 === $expected_height || $actual_height <= $expected_height;
+
+			if ( ! $width_valid && ! $height_valid ) {
+				return new WP_Error(
+					'rest_invalid_subsize_dimensions',
+					sprintf(
+						/* translators: 1: Size name, 2: Expected width, 3: Expected height, 4: Actual width, 5: Actual height. */
+						__( 'Image size "%1$s" dimensions exceed maximum. Expected max %2$dx%3$d pixels, got %4$dx%5$d pixels.', 'gutenberg' ),
+						$image_size,
+						$expected_width,
+						$expected_height,
+						$actual_width,
+						$actual_height
+					),
+					array( 'status' => 400 )
+				);
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Populates image meta from EXIF/IPTC data if available.
+	 *
+	 * @param string $file Path to the image file.
+	 * @param array  $metadata Existing metadata array.
+	 * @return array Updated metadata array with image_meta populated.
+	 */
+	private function populate_image_meta( $file, $metadata ) {
+		// Only process image files.
+		if ( ! file_exists( $file ) ) {
+			return $metadata;
+		}
+
+		// Initialize image_meta if not present.
+		if ( ! isset( $metadata['image_meta'] ) ) {
+			$metadata['image_meta'] = array(
+				'aperture'          => '0',
+				'credit'            => '',
+				'camera'            => '',
+				'caption'           => '',
+				'created_timestamp' => '0',
+				'copyright'         => '',
+				'focal_length'      => '0',
+				'iso'               => '0',
+				'shutter_speed'     => '0',
+				'title'             => '',
+				'orientation'       => '0',
+				'keywords'          => array(),
+			);
+		}
+
+		// Try to read EXIF data if the function is available.
+		if ( function_exists( 'wp_read_image_metadata' ) ) {
+			$image_meta = wp_read_image_metadata( $file );
+
+			if ( $image_meta ) {
+				// Merge the read metadata with existing, only updating empty values.
+				foreach ( $image_meta as $key => $value ) {
+					if ( isset( $metadata['image_meta'][ $key ] ) ) {
+						// Only update if the existing value is empty/default.
+						$existing = $metadata['image_meta'][ $key ];
+						$is_empty = '' === $existing || '0' === $existing || 0 === $existing || ( is_array( $existing ) && empty( $existing ) );
+
+						if ( $is_empty && ! empty( $value ) ) {
+							$metadata['image_meta'][ $key ] = $value;
+						}
+					}
+				}
+			}
+		}
+
+		return $metadata;
 	}
 
 	/**
@@ -323,6 +539,39 @@ class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controll
 
 		$image_size = $request['image_size'];
 
+		// Get actual image dimensions.
+		$size          = wp_getimagesize( $path );
+		$actual_width  = $size ? (int) $size[0] : 0;
+		$actual_height = $size ? (int) $size[1] : 0;
+
+		// Validate dimensions if requested.
+		if ( ! empty( $request['validate_dimensions'] ) ) {
+			$expected_width  = isset( $request['expected_width'] ) ? (int) $request['expected_width'] : null;
+			$expected_height = isset( $request['expected_height'] ) ? (int) $request['expected_height'] : null;
+
+			$dimension_validation = $this->validate_image_dimensions(
+				$actual_width,
+				$actual_height,
+				$expected_width,
+				$expected_height
+			);
+
+			if ( is_wp_error( $dimension_validation ) ) {
+				// Clean up the uploaded file on validation failure.
+				wp_delete_file( $path );
+				return $dimension_validation;
+			}
+
+			// Also validate against registered image subsizes.
+			$subsize_validation = $this->validate_size_against_registered( $image_size, $actual_width, $actual_height );
+
+			if ( is_wp_error( $subsize_validation ) ) {
+				// Clean up the uploaded file on validation failure.
+				wp_delete_file( $path );
+				return $subsize_validation;
+			}
+		}
+
 		$metadata = wp_get_attachment_metadata( $attachment_id, true );
 
 		if ( ! $metadata ) {
@@ -331,14 +580,26 @@ class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controll
 
 		if ( 'original' === $image_size ) {
 			$metadata['original_image'] = wp_basename( $path );
+
+			// Populate image dimensions for original image if not set.
+			if ( empty( $metadata['width'] ) && $actual_width > 0 ) {
+				$metadata['width'] = $actual_width;
+			}
+			if ( empty( $metadata['height'] ) && $actual_height > 0 ) {
+				$metadata['height'] = $actual_height;
+			}
+			if ( empty( $metadata['file'] ) ) {
+				$metadata['file'] = _wp_relative_upload_path( $path );
+			}
+
+			// Populate image meta from EXIF/IPTC data for original images.
+			$metadata = $this->populate_image_meta( $path, $metadata );
 		} else {
 			$metadata['sizes'] = $metadata['sizes'] ?? array();
 
-			$size = wp_getimagesize( $path );
-
 			$metadata['sizes'][ $image_size ] = array(
-				'width'     => $size ? $size[0] : 0,
-				'height'    => $size ? $size[1] : 0,
+				'width'     => $actual_width,
+				'height'    => $actual_height,
 				'file'      => wp_basename( $path ),
 				'mime-type' => $type,
 				'filesize'  => wp_filesize( $path ),
