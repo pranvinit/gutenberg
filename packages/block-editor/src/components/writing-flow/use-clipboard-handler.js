@@ -7,6 +7,7 @@ import {
 	getBlockTransforms,
 	hasBlockSupport,
 	switchToBlockType,
+	store as blocksStore,
 } from '@wordpress/blocks';
 import {
 	documentHasSelection,
@@ -14,6 +15,8 @@ import {
 } from '@wordpress/dom';
 import { useDispatch, useRegistry, useSelect } from '@wordpress/data';
 import { useRefEffect } from '@wordpress/compose';
+import { store as noticesStore } from '@wordpress/notices';
+import { sprintf, _n } from '@wordpress/i18n';
 
 /**
  * Internal dependencies
@@ -22,6 +25,83 @@ import { store as blockEditorStore } from '../../store';
 import { useNotifyCopy } from '../../utils/use-notify-copy';
 import { setClipboardBlocks } from './utils';
 import { getPasteEventData } from '../../utils/pasting';
+
+/**
+ * List of block types that are restricted to specific contexts and should be
+ * filtered out when pasting into incompatible destinations (e.g., pages).
+ */
+export const RESTRICTED_BLOCK_TYPES = [
+	'core/template-part',
+	'core/post-content',
+];
+
+/**
+ * Filters blocks recursively, removing incompatible blocks while preserving
+ * the structure of valid blocks.
+ *
+ * @param {Array}    blocks             Array of blocks to filter.
+ * @param {Function} canInsertBlockType Function to check if a block can be inserted.
+ * @param {string}   rootClientId       The root client ID where blocks will be inserted.
+ * @return {Object} Object containing filtered blocks and removed block names.
+ */
+export function filterIncompatibleBlocks(
+	blocks,
+	canInsertBlockType,
+	rootClientId
+) {
+	const filteredBlocks = [];
+	const removedBlockNames = new Set();
+
+	for ( const block of blocks ) {
+		// Check if this block type is restricted
+		const isRestricted = RESTRICTED_BLOCK_TYPES.includes( block.name );
+		const canInsert = canInsertBlockType( block.name, rootClientId );
+
+		if ( isRestricted && ! canInsert ) {
+			// Track the removed block type
+			removedBlockNames.add( block.name );
+
+			// If the block has inner blocks, try to preserve them
+			if ( block.innerBlocks && block.innerBlocks.length > 0 ) {
+				const innerResult = filterIncompatibleBlocks(
+					block.innerBlocks,
+					canInsertBlockType,
+					rootClientId
+				);
+				filteredBlocks.push( ...innerResult.filteredBlocks );
+				innerResult.removedBlockNames.forEach( ( name ) =>
+					removedBlockNames.add( name )
+				);
+			}
+		} else if ( canInsert ) {
+			// Block can be inserted, but check inner blocks too
+			if ( block.innerBlocks && block.innerBlocks.length > 0 ) {
+				const innerResult = filterIncompatibleBlocks(
+					block.innerBlocks,
+					canInsertBlockType,
+					rootClientId
+				);
+
+				// Only update inner blocks if some were filtered
+				if ( innerResult.removedBlockNames.size > 0 ) {
+					innerResult.removedBlockNames.forEach( ( name ) =>
+						removedBlockNames.add( name )
+					);
+					filteredBlocks.push( {
+						...block,
+						innerBlocks: innerResult.filteredBlocks,
+					} );
+				} else {
+					filteredBlocks.push( block );
+				}
+			} else {
+				filteredBlocks.push( block );
+			}
+		}
+	}
+
+	return { filteredBlocks, removedBlockNames };
+}
 
 export default function useClipboardHandler() {
 	const registry = useRegistry();
@@ -46,6 +126,8 @@ export default function useClipboardHandler() {
 		__unstableExpandSelection,
 		__unstableSplitSelection,
 	} = useDispatch( blockEditorStore );
+	const { createWarningNotice } = useDispatch( noticesStore );
+	const { getBlockType } = useSelect( blocksStore );
 	const notifyCopy = useNotifyCopy();
 
 	return useRefEffect( ( node ) => {
@@ -185,11 +267,55 @@ export default function useClipboardHandler() {
 					return;
 				}
 
+				const [ firstSelectedClientId ] = selectedBlockClientIds;
+				const rootClientId = getBlockRootClientId(
+					firstSelectedClientId
+				);
+
+				// Filter out incompatible blocks (like template parts) and notify user
+				const { filteredBlocks, removedBlockNames } =
+					filterIncompatibleBlocks(
+						blocks,
+						canInsertBlockType,
+						rootClientId
+					);
+
+				// Notify user if any blocks were removed
+				if ( removedBlockNames.size > 0 ) {
+					const removedBlockTitles = Array.from( removedBlockNames )
+						.map( ( name ) => getBlockType( name )?.title || name )
+						.join( ', ' );
+
+					createWarningNotice(
+						sprintf(
+							// translators: %s: list of block type names that were removed
+							_n(
+								'%s was removed from the pasted content as it is not allowed in this location.',
+								'%s were removed from the pasted content as they are not allowed in this location.',
+								removedBlockNames.size
+							),
+							removedBlockTitles
+						),
+						{
+							type: 'snackbar',
+						}
+					);
+				}
+
+				// Use filtered blocks for pasting
+				const blocksToInsert = filteredBlocks;
+
+				// If all blocks were filtered out, don't proceed with paste
+				if ( blocksToInsert.length === 0 ) {
+					event.preventDefault();
+					return;
+				}
+
 				if ( isFullySelected ) {
 					replaceBlocks(
 						selectedBlockClientIds,
-						blocks,
-						blocks.length - 1,
+						blocksToInsert,
+						blocksToInsert.length - 1,
 						-1
 					);
 					event.preventDefault();
@@ -210,14 +336,11 @@ export default function useClipboardHandler() {
 					return;
 				}
 
-				const [ firstSelectedClientId ] = selectedBlockClientIds;
-				const rootClientId = getBlockRootClientId(
-					firstSelectedClientId
-				);
-
+				// For split selection, we need additional handling for blocks
+				// that can be converted to the root block type
 				const newBlocks = [];
 
-				for ( const block of blocks ) {
+				for ( const block of blocksToInsert ) {
 					if ( canInsertBlockType( block.name, rootClientId ) ) {
 						newBlocks.push( block );
 					} else {
@@ -232,19 +355,21 @@ export default function useClipboardHandler() {
 								? switchToBlockType( block, rootBlockName )
 								: [ block ];
 
-						if ( ! switchedBlocks ) {
-							return;
-						}
-
-						for ( const switchedBlock of switchedBlocks ) {
-							for ( const innerBlock of switchedBlock.innerBlocks ) {
-								newBlocks.push( innerBlock );
+						if ( switchedBlocks ) {
+							for ( const switchedBlock of switchedBlocks ) {
+								for ( const innerBlock of switchedBlock.innerBlocks ) {
+									newBlocks.push( innerBlock );
+								}
 							}
 						}
+						// If switchedBlocks is null, skip this block instead of aborting
 					}
 				}
 
-				__unstableSplitSelection( newBlocks );
+				// Only proceed if there are blocks to insert
+				if ( newBlocks.length > 0 ) {
+					__unstableSplitSelection( newBlocks );
+				}
 				event.preventDefault();
 			}
 		}
