@@ -1,9 +1,10 @@
 /**
  * WordPress dependencies
  */
-import { getBlockSupport, hasBlockSupport } from '@wordpress/blocks';
+import { getBlockSupport, getBlockType, hasBlockSupport } from '@wordpress/blocks';
 import { useMemo, useCallback } from '@wordpress/element';
 import { useSelect } from '@wordpress/data';
+import { create, removeFormat, toHTMLString } from '@wordpress/rich-text';
 
 /**
  * Internal dependencies
@@ -37,6 +38,12 @@ const FONT_STYLE_SUPPORT_KEY = 'typography.__experimentalFontStyle';
 const FONT_WEIGHT_SUPPORT_KEY = 'typography.__experimentalFontWeight';
 const WRITING_MODE_SUPPORT_KEY = 'typography.__experimentalWritingMode';
 export const TYPOGRAPHY_SUPPORT_KEY = 'typography';
+const TYPOGRAPHY_INLINE_FORMAT_TYPES = [
+	'core/bold',
+	'core/italic',
+	'strong',
+	'em',
+];
 export const TYPOGRAPHY_SUPPORT_KEYS = [
 	LINE_HEIGHT_SUPPORT_KEY,
 	FONT_SIZE_SUPPORT_KEY,
@@ -76,6 +83,62 @@ function styleToAttributes( style ) {
 		fontFamily: fontFamilySlug,
 		fontSize: fontSizeSlug,
 	};
+}
+
+function isRichTextAttribute( attributeDefinition ) {
+	return (
+		attributeDefinition?.type === 'rich-text' ||
+		attributeDefinition?.source === 'rich-text'
+	);
+}
+
+function removeTypographyInlineFormats( value ) {
+	if ( typeof value !== 'string' || ! value ) {
+		return value;
+	}
+
+	const richTextValue = create( { html: value } );
+	const textLength = richTextValue.text?.length;
+
+	if ( ! textLength ) {
+		return value;
+	}
+
+	const updatedValue = TYPOGRAPHY_INLINE_FORMAT_TYPES.reduce(
+		( currentValue, formatType ) =>
+			removeFormat( currentValue, formatType, 0, textLength ),
+		richTextValue
+	);
+
+	return toHTMLString( { value: updatedValue } );
+}
+
+export function getTypographyResetAttributes( blockName, attributes ) {
+	const blockType = getBlockType( blockName );
+
+	if ( ! blockType?.attributes ) {
+		return {};
+	}
+
+	return Object.fromEntries(
+		Object.entries( blockType.attributes ).flatMap(
+			( [ attributeName, attributeDefinition ] ) => {
+				if ( ! isRichTextAttribute( attributeDefinition ) ) {
+					return [];
+				}
+
+				const attributeValue = attributes?.[ attributeName ];
+				const updatedAttributeValue =
+					removeTypographyInlineFormats( attributeValue );
+
+				if ( updatedAttributeValue === attributeValue ) {
+					return [];
+				}
+
+				return [ [ attributeName, updatedAttributeValue ] ];
+			}
+		)
+	);
 }
 
 function attributesToStyle( attributes ) {
@@ -119,34 +182,28 @@ function TypographyInspectorControl( { children, resetAllFilter } ) {
 export function TypographyPanel( { clientId, name, setAttributes, settings } ) {
 	const isEnabled = useHasTypographyPanel( settings );
 
-	const { style, fontFamily, fontSize, fitText } = useSelect(
+	const attributes = useSelect(
 		( select ) => {
 			// Early return to avoid subscription when disabled.
 			if ( ! isEnabled ) {
 				return {};
 			}
-			const {
-				style: _style,
-				fontFamily: _fontFamily,
-				fontSize: _fontSize,
-				fitText: _fitText,
-			} = select( blockEditorStore ).getBlockAttributes( clientId ) || {};
-			return {
-				style: _style,
-				fontFamily: _fontFamily,
-				fontSize: _fontSize,
-				fitText: _fitText,
-			};
+			return select( blockEditorStore ).getBlockAttributes( clientId ) || {};
 		},
 		[ clientId, isEnabled ]
 	);
+	const { style, fontFamily, fontSize, fitText } = attributes;
 	const value = useMemo(
 		() => attributesToStyle( { style, fontFamily, fontSize } ),
 		[ style, fontSize, fontFamily ]
 	);
 
-	const onChange = ( newStyle ) => {
+	const onChange = ( newStyle, options = {} ) => {
 		const newAttributes = styleToAttributes( newStyle );
+		const typographyResetAttributes =
+			options.resetAllRichTextTypographyFormats
+				? getTypographyResetAttributes( name, attributes )
+				: {};
 
 		// If setting a font size and fitText is currently enabled, disable it
 		const hasFontSize =
@@ -155,7 +212,10 @@ export function TypographyPanel( { clientId, name, setAttributes, settings } ) {
 			newAttributes.fitText = undefined;
 		}
 
-		setAttributes( newAttributes );
+		setAttributes( {
+			...newAttributes,
+			...typographyResetAttributes,
+		} );
 	};
 
 	if ( ! isEnabled ) {
