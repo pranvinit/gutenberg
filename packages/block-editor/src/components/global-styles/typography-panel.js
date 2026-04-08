@@ -315,9 +315,16 @@ export default function TypographyPanel( {
 	const fontStyle = decodeValue( inheritedValue?.typography?.fontStyle );
 	const fontWeight = decodeValue( inheritedValue?.typography?.fontWeight );
 	const setFontAppearance = useCallback(
-		( { fontStyle: newFontStyle, fontWeight: newFontWeight } ) => {
+		(
+			{ fontStyle: newFontStyle, fontWeight: newFontWeight },
+			options = {}
+		) => {
 			// Only update the font style and weight if they have changed.
-			if ( newFontStyle !== fontStyle || newFontWeight !== fontWeight ) {
+			if (
+				newFontStyle !== fontStyle ||
+				newFontWeight !== fontWeight ||
+				options.resetAllRichTextTypographyFormats
+			) {
 				onChange( {
 					...value,
 					typography: {
@@ -325,7 +332,7 @@ export default function TypographyPanel( {
 						fontStyle: newFontStyle || undefined,
 						fontWeight: newFontWeight || undefined,
 					},
-				} );
+				}, options );
 			}
 		},
 		[ fontStyle, fontWeight, onChange, value ]
@@ -333,7 +340,7 @@ export default function TypographyPanel( {
 	const hasFontAppearance = () =>
 		!! value?.typography?.fontStyle || !! value?.typography?.fontWeight;
 	const resetFontAppearance = useCallback( () => {
-		setFontAppearance( {} );
+		setFontAppearance( {}, { resetAllRichTextTypographyFormats: true } );
 	}, [ setFontAppearance ] );
 
 	// Line Height

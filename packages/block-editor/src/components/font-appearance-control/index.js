@@ -174,7 +174,10 @@ export default function FontAppearanceControl( props ) {
 				options={ selectOptions }
 				value={ currentSelection }
 				onChange={ ( { selectedItem } ) =>
-					onChange( selectedItem.style )
+					onChange( selectedItem.style, {
+						resetAllRichTextTypographyFormats:
+							selectedItem.key === defaultOption.key,
+					} )
 				}
 			/>
 		)
