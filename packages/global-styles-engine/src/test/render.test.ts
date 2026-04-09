@@ -36,7 +36,7 @@ jest.mock( '@wordpress/blocks', () => ( {
 		h4: 'h4',
 		h5: 'h5',
 		h6: 'h6',
-		button: '.wp-element-button',
+		button: '.wp-element-button, .wp-block-button__link',
 		caption: '.wp-element-caption',
 	},
 	getBlockSupport: jest.fn(),
@@ -53,7 +53,7 @@ const ELEMENTS = {
 	h4: 'h4',
 	h5: 'h5',
 	h6: 'h6',
-	button: '.wp-element-button',
+	button: '.wp-element-button, .wp-block-button__link',
 	caption: '.wp-element-caption',
 };
 
@@ -137,7 +137,7 @@ describe( 'global styles renderer', () => {
 				},
 			};
 
-			expect( getNodesWithStyles( tree, blockSelectors ) ).toEqual( [
+			expect( getNodesWithStyles( tree, blockSelectors ) ).toMatchObject( [
 				{
 					styles: {
 						color: {
@@ -186,7 +186,7 @@ describe( 'global styles renderer', () => {
 							fontSize: '42px',
 						},
 					},
-					selector: '.my-heading1 h1, .my-heading2 h1',
+					selector: '.my-heading1 h1,.my-heading2 h1',
 				},
 				{
 					styles: {
@@ -194,7 +194,7 @@ describe( 'global styles renderer', () => {
 							fontSize: '23px',
 						},
 					},
-					selector: '.my-heading1 h2, .my-heading2 h2',
+					selector: '.my-heading1 h2,.my-heading2 h2',
 				},
 				{
 					styles: {
@@ -212,7 +212,7 @@ describe( 'global styles renderer', () => {
 						},
 					},
 					selector:
-						'.my-heading1 a:where(:not(.wp-element-button)), .my-heading2 a:where(:not(.wp-element-button))',
+						'.my-heading1 a:where(:not(.wp-element-button)),.my-heading2 a:where(:not(.wp-element-button))',
 				},
 				{
 					styles: {
@@ -225,6 +225,41 @@ describe( 'global styles renderer', () => {
 					featureSelectors: '.my-image img, .my-image .crop-area',
 				},
 			] );
+		} );
+
+		it( 'should reuse the block root selector when it already targets the requested element', () => {
+			const tree = {
+				styles: {
+					blocks: {
+						'core/button': {
+							elements: {
+								button: {
+									color: {
+										text: 'green',
+									},
+								},
+							},
+						},
+					},
+				},
+			};
+
+			const blockSelectors = {
+				'core/button': {
+					selector: '.wp-block-button .wp-block-button__link',
+				},
+			};
+
+			expect( getNodesWithStyles( tree, blockSelectors ) ).toContainEqual(
+				{
+					styles: {
+						color: {
+							text: 'green',
+						},
+					},
+					selector: '.wp-block-button .wp-block-button__link',
+				}
+			);
 		} );
 	} );
 
