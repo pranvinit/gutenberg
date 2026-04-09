@@ -4766,12 +4766,28 @@ class WP_Theme_JSON_Gutenberg {
 		$element_selectors = array();
 
 		foreach ( static::ELEMENTS as $el_name => $el_selector ) {
+			$element_selector_parts = array_map( 'trim', explode( ',', $el_selector ) );
 			$element_selector = array();
 			foreach ( $block_selectors as $selector ) {
-				if ( $selector === $el_selector ) {
-					$element_selector = array( $el_selector );
-					break;
+				$selector = trim( $selector );
+				$matches_existing_element_selector = false;
+
+				foreach ( $element_selector_parts as $element_selector_part ) {
+					if ( '' === $element_selector_part ) {
+						continue;
+					}
+
+					if ( str_contains( $selector, $element_selector_part ) ) {
+						$matches_existing_element_selector = true;
+						break;
+					}
 				}
+
+				if ( $matches_existing_element_selector ) {
+					$element_selector[] = $selector;
+					continue;
+				}
+
 				$element_selector[] = static::prepend_to_selector( $el_selector, $selector . ' ' );
 			}
 			$element_selectors[ $el_name ] = implode( ',', $element_selector );

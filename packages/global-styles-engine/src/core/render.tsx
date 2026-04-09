@@ -1044,7 +1044,7 @@ export const getNodesWithStyles = (
 										) {
 											variationNodesToAdd.push( {
 												styles: variationBlockElementStyles,
-												selector: scopeSelector(
+												selector: scopeBlockElementSelector(
 													variationBlockSelector,
 													ELEMENTS[
 														variationBlockElement
@@ -1094,14 +1094,12 @@ export const getNodesWithStyles = (
 							styles: value,
 							selector: blockSelectors[ blockName ]?.selector
 								.split( ',' )
-								.map( ( sel: string ) => {
-									const elementSelectors =
-										ELEMENTS[ elementName ].split( ',' );
-									return elementSelectors.map(
-										( elementSelector: string ) =>
-											sel + ' ' + elementSelector
-									);
-								} )
+								.map( ( selector: string ) =>
+									scopeBlockElementSelector(
+										selector.trim(),
+										ELEMENTS[ elementName ]
+									)
+								)
 								.join( ',' ),
 						} );
 					}
@@ -1116,6 +1114,29 @@ export const getNodesWithStyles = (
 
 	return nodes;
 };
+
+function selectorAlreadyTargetsElement(
+	blockSelector: string,
+	elementSelector: string
+) {
+	return elementSelector
+		.split( ',' )
+		.map( ( selector ) => selector.trim() )
+		.some(
+			( selector ) => selector.length > 0 && blockSelector.includes( selector )
+		);
+}
+
+function scopeBlockElementSelector(
+	blockSelector: string,
+	elementSelector: string
+) {
+	if ( selectorAlreadyTargetsElement( blockSelector, elementSelector ) ) {
+		return blockSelector;
+	}
+
+	return scopeSelector( blockSelector, elementSelector );
+}
 
 export const getNodesWithSettings = (
 	tree: GlobalStylesConfig,
