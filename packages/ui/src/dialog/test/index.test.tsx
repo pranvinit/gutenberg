@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createRef, useState } from '@wordpress/element';
 import * as Dialog from '../index';
+import styles from '../style.module.css';
 
 function collectUncaughtErrors() {
 	const errors: Error[] = [];
@@ -61,6 +62,69 @@ describe( 'Dialog', () => {
 		expect( closeIconRef.current ).toBeInstanceOf( HTMLButtonElement );
 		expect( actionRef.current ).toBeInstanceOf( HTMLButtonElement );
 		expect( footerRef.current ).toBeInstanceOf( HTMLDivElement );
+	} );
+
+	it( 'renders a dedicated scrollable body between header and footer', async () => {
+		const user = userEvent.setup();
+
+		render(
+			<Dialog.Root>
+				<Dialog.Trigger>Open Dialog</Dialog.Trigger>
+				<Dialog.Popup>
+					<Dialog.Header>
+						<Dialog.Title>Sticky regions</Dialog.Title>
+						<Dialog.CloseIcon />
+					</Dialog.Header>
+					<p>Scrollable content</p>
+					<Dialog.Footer>
+						<Dialog.Action>Close</Dialog.Action>
+					</Dialog.Footer>
+				</Dialog.Popup>
+			</Dialog.Root>
+		);
+
+		await user.click(
+			screen.getByRole( 'button', { name: 'Open Dialog' } )
+		);
+
+		const dialog = await screen.findByRole( 'dialog' );
+		const header = screen.getByText( 'Sticky regions' ).closest( 'div' );
+		const footer = screen
+			.getByRole( 'button', { name: 'Close' } )
+			.closest( 'div' );
+		const body = screen.getByText( 'Scrollable content' ).parentElement;
+
+		expect( header ).toHaveClass( styles.header );
+		expect( footer ).toHaveClass( styles.footer );
+		expect( body ).toHaveClass( styles.body );
+		expect( dialog.firstElementChild ).toBe( header );
+		expect( body?.previousElementSibling ).toBe( header );
+		expect( body?.nextElementSibling ).toBe( footer );
+	} );
+
+	it( 'wraps content in the dialog body when header and footer are omitted', async () => {
+		const user = userEvent.setup();
+
+		render(
+			<Dialog.Root>
+				<Dialog.Trigger>Open Dialog</Dialog.Trigger>
+				<Dialog.Popup>
+					<Dialog.Title>Title only</Dialog.Title>
+					<p>Body content</p>
+				</Dialog.Popup>
+			</Dialog.Root>
+		);
+
+		await user.click(
+			screen.getByRole( 'button', { name: 'Open Dialog' } )
+		);
+
+		const dialog = await screen.findByRole( 'dialog' );
+		const body = screen.getByText( 'Body content' ).parentElement;
+
+		expect( body ).toHaveClass( styles.body );
+		expect( dialog.firstElementChild ).toBe( body );
+		expect( screen.getByText( 'Title only' ) ).toBeInTheDocument();
 	} );
 
 	describe( 'Development mode validation', () => {
