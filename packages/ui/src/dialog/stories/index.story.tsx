@@ -45,6 +45,13 @@ Use \`Dialog.CloseIcon\` for informational dialogs where dismissing is safe and 
 export default meta;
 
 type Story = StoryObj< typeof Dialog.Root >;
+const LONG_CONTENT = Array.from( { length: 12 }, ( _, index ) => (
+	<p key={ index }>
+		This is line { index + 1 } of long dialog content. Use it to verify
+		that the header and footer remain visible while the dialog body
+		scrolls.
+	</p>
+) );
 
 /**
  * An informational dialog with a close icon, where there is no ambiguity on
@@ -146,6 +153,27 @@ function SizePlaygroundContent() {
 export const AllSizes: Story = {
 	args: {
 		children: <SizePlaygroundContent />,
+	},
+};
+
+export const StickyHeaderAndFooter: Story = {
+	args: {
+		children: (
+			<>
+				<Dialog.Trigger>Open Sticky Dialog</Dialog.Trigger>
+				<Dialog.Popup size="large">
+					<Dialog.Header>
+						<Dialog.Title>Team settings</Dialog.Title>
+						<Dialog.CloseIcon />
+					</Dialog.Header>
+					{ LONG_CONTENT }
+					<Dialog.Footer>
+						<Dialog.Action>Cancel</Dialog.Action>
+						<Dialog.Action variant="primary">Save</Dialog.Action>
+					</Dialog.Footer>
+				</Dialog.Popup>
+			</>
+		),
 	},
 };
 
