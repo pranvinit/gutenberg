@@ -1,7 +1,7 @@
 /**
  * WordPress dependencies
  */
-import { Stack } from '@wordpress/ui';
+import { Stack, Text } from '@wordpress/ui';
 
 /**
  * Internal dependencies
@@ -51,9 +51,13 @@ export default function Header( {
 						</div>
 					) }
 					{ title && (
-						<HeadingTag className="admin-ui-page__header-title">
+						<Text
+							variant="heading-lg"
+							render={ <HeadingTag /> }
+							truncate
+						>
 							{ title }
-						</HeadingTag>
+						</Text>
 					) }
 					{ breadcrumbs }
 					{ badges }

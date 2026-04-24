@@ -18,18 +18,6 @@
 	z-index: 1;
 }
 
-.admin-ui-page__header-title {
-	// @TODO: use Text component from UI when available.
-	font-family: var(--wpds-typography-font-family-heading);
-	font-size: var(--wpds-typography-font-size-lg);
-	font-weight: var(--wpds-typography-font-weight-medium);
-	line-height: var(--wpds-typography-line-height-lg);
-	margin: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
 .admin-ui-page__header-visual {
 	display: grid;
 	grid-template-columns: 1fr;
