@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { createRef } from '@wordpress/element';
 import { Text } from '../index';
+import styles from '../style.module.css';
 
 describe( 'Text', () => {
 	it( 'forwards ref', () => {
@@ -39,5 +40,28 @@ describe( 'Text', () => {
 		expect(
 			screen.getByRole( 'heading', { level: 2, name: 'Section title' } )
 		).toBeVisible();
+	} );
+
+	it( 'supports single-line truncation', () => {
+		render(
+			<Text data-testid="text" truncate>
+				A very long piece of content
+			</Text>
+		);
+
+		expect( screen.getByTestId( 'text' ) ).toHaveClass( styles.truncate );
+	} );
+
+	it( 'supports multi-line truncation', () => {
+		render(
+			<Text data-testid="text" numberOfLines={ 2 }>
+				A very long piece of content that should span multiple lines.
+			</Text>
+		);
+
+		expect( screen.getByTestId( 'text' ) ).toHaveClass( styles.lineClamp );
+		expect( screen.getByTestId( 'text' ) ).toHaveStyle( {
+			WebkitLineClamp: '2',
+		} );
 	} );
 } );

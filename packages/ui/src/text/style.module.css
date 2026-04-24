@@ -5,6 +5,19 @@
 		margin: 0;
 	}
 
+	.truncate {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.lineClamp {
+		display: -webkit-box;
+		overflow: hidden;
+		/* stylelint-disable-next-line plugin/use-logical-properties-and-values -- Required by -webkit-line-clamp multi-line truncation. */
+		-webkit-box-orient: vertical;
+	}
+
 	.heading-2xl {
 		--_gcd-heading-font-size: var(--wpds-typography-font-size-2xl);
 
