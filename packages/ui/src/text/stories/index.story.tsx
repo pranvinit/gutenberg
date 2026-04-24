@@ -69,3 +69,19 @@ export const WithRenderProp: Story = {
 		</Stack>
 	),
 };
+
+export const Truncated: Story = {
+	render: () => (
+		<Stack direction="column" gap="md" style={ { width: '240px' } }>
+			<Text truncate>
+				This is a long line of text that will truncate once it reaches the
+				width of its container.
+			</Text>
+			<Text numberOfLines={ 2 }>
+				This is a longer block of text that demonstrates multi-line
+				truncation with a line clamp when the content exceeds the available
+				space in its container.
+			</Text>
+		</Stack>
+	),
+};
