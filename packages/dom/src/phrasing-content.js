@@ -90,6 +90,7 @@ const embeddedContentSchema = {
 	img: {
 		attributes: [
 			'alt',
+			'class',
 			'src',
 			'srcset',
 			'usemap',
@@ -97,6 +98,7 @@ const embeddedContentSchema = {
 			'width',
 			'height',
 		],
+		classes: [ /^wp-image-\d+$/ ],
 	},
 	object: {
 		attributes: [

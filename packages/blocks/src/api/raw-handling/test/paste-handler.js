@@ -263,6 +263,19 @@ describe( 'pasteHandler', () => {
 		} );
 	} );
 
+	it( 'preserves WordPress image classes when pasting inline images', () => {
+		const result = pasteHandler( {
+			HTML: '<img class="wp-image-123 size-large unrelated" src="https://example.com/image.jpg" alt="">',
+			mode: 'INLINE',
+			tagName: 'p',
+		} );
+
+		expect( console ).toHaveLogged();
+		expect( result ).toBe(
+			'<img class="wp-image-123" src="https://example.com/image.jpg" alt="">'
+		);
+	} );
+
 	it( 'can handle a video', () => {
 		const [ result ] = pasteHandler( {
 			HTML: '<video controls src="https://example.com/media.mp4" autoplay loop muted controls playsinline preload="auto" poster="https://example.com/media.jpg"></video>',
