@@ -16,6 +16,11 @@
 		// Removes outline added by the browser.
 		outline: none;
 	}
+
+	img {
+		height: auto;
+		max-width: 100%;
+	}
 }
 
 // Captions may have lighter (gray) text, or be shown on a range of different background luminosites.
