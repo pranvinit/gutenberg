@@ -284,6 +284,24 @@ test.describe( 'Table', () => {
 		expect( await editor.getEditedPostContent() ).toMatchSnapshot();
 	} );
 
+	test( 'constrains images without dimensions in cells', async ( {
+		editor,
+	} ) => {
+		await editor.setContent( `<!-- wp:table {"hasFixedLayout":true} -->
+<figure class="wp-block-table"><table class="has-fixed-layout"><tbody><tr><td><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3C/svg%3E" alt=""></td><td>Text</td></tr></tbody></table></figure>
+<!-- /wp:table -->` );
+
+		const firstCell = editor.canvas.locator( '.wp-block-table td' ).first();
+		const image = firstCell.locator( 'img' );
+		await expect( image ).toBeVisible();
+
+		const cellBox = await firstCell.boundingBox();
+		const imageBox = await image.boundingBox();
+
+		expect( imageBox.width ).toBeGreaterThan( 0 );
+		expect( imageBox.width ).toBeLessThanOrEqual( cellBox.width );
+	} );
+
 	test( 'up and down arrow navigation', async ( { editor, page } ) => {
 		await editor.insertBlock( { name: 'core/table' } );
 		// Create the table.
