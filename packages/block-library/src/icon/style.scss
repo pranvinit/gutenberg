@@ -15,6 +15,10 @@
 		box-sizing: border-box;
 		fill: currentColor;
 	}
+
+	&__link {
+		color: inherit;
+	}
 }
 
 // Use :where() so these defaults have zero specificity and can be overridden

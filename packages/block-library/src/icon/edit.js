@@ -9,6 +9,7 @@ import clsx from 'clsx';
 import { __ } from '@wordpress/i18n';
 import {
 	DropdownMenu,
+	Popover,
 	TextControl,
 	ToolbarButton,
 	ToolbarGroup,
@@ -18,6 +19,7 @@ import {
 import {
 	BlockControls,
 	InspectorControls,
+	LinkControl,
 	useBlockProps,
 	useBlockEditingMode,
 	__experimentalUseColorProps as useColorProps,
@@ -25,10 +27,18 @@ import {
 	__experimentalGetSpacingClassesAndStyles as useSpacingProps,
 	getDimensionsClassesAndStyles as useDimensionsProps,
 } from '@wordpress/block-editor';
-import { useState } from '@wordpress/element';
+import {
+	createInterpolateElement,
+	useEffect,
+	useMemo,
+	useState,
+} from '@wordpress/element';
 import { SVG, Rect, Path } from '@wordpress/primitives';
 import { useSelect } from '@wordpress/data';
 import { store as coreDataStore } from '@wordpress/core-data';
+import { displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
+import { link, linkOff } from '@wordpress/icons';
+import { Link } from '@wordpress/ui';
 
 /**
  * Internal dependencies
@@ -36,6 +46,16 @@ import { store as coreDataStore } from '@wordpress/core-data';
 import { useToolsPanelDropdownMenuProps } from '../utils/hooks';
 import HtmlRenderer from '../utils/html-renderer';
 import { CustomInserterModal } from './components';
+import { NEW_TAB_TARGET, NOFOLLOW_REL } from './constants';
+import { getUpdatedLinkAttributes } from './get-updated-link-attributes';
+
+const LINK_SETTINGS = [
+	...LinkControl.DEFAULT_LINK_SETTINGS,
+	{
+		id: 'nofollow',
+		title: __( 'Mark as nofollow' ),
+	},
+];
 
 const IconPlaceholder = ( { className, style } ) => (
 	<SVG
@@ -57,10 +77,12 @@ const IconPlaceholder = ( { className, style } ) => (
 	</SVG>
 );
 
-export function Edit( { attributes, setAttributes } ) {
-	const { icon, ariaLabel } = attributes;
+export function Edit( { attributes, setAttributes, isSelected } ) {
+	const { icon, ariaLabel, linkTarget, rel, url } = attributes;
 
 	const [ isInserterOpen, setInserterOpen ] = useState( false );
+	const [ isEditingURL, setIsEditingURL ] = useState( false );
+	const [ popoverAnchor, setPopoverAnchor ] = useState( null );
 
 	const isContentOnlyMode = useBlockEditingMode() === 'contentOnly';
 
@@ -68,6 +90,42 @@ export function Edit( { attributes, setAttributes } ) {
 	const spacingProps = useSpacingProps( attributes );
 	const borderProps = useBorderProps( attributes );
 	const dimensionsProps = useDimensionsProps( attributes );
+	const isURLSet = !! url;
+	const opensInNewTab = linkTarget === NEW_TAB_TARGET;
+	const nofollow = rel?.split( /\s+/ ).includes( NOFOLLOW_REL ) ?? false;
+	const linkValue = useMemo(
+		() => ( { url, opensInNewTab, nofollow } ),
+		[ url, opensInNewTab, nofollow ]
+	);
+
+	function startEditing( event ) {
+		event.preventDefault();
+		setIsEditingURL( true );
+	}
+
+	function unlink() {
+		setAttributes( {
+			url: undefined,
+			linkTarget: undefined,
+			rel: undefined,
+		} );
+		setIsEditingURL( false );
+	}
+
+	function onKeyDown( event ) {
+		if ( isKeyboardEvent.primary( event, 'k' ) ) {
+			startEditing( event );
+		} else if ( isKeyboardEvent.primaryShift( event, 'k' ) ) {
+			event.preventDefault();
+			unlink();
+		}
+	}
+
+	useEffect( () => {
+		if ( ! isSelected ) {
+			setIsEditingURL( false );
+		}
+	}, [ isSelected ] );
 
 	const { selectedIcon, allIcons = [] } = useSelect(
 		( select ) => {
@@ -86,6 +144,50 @@ export function Edit( { attributes, setAttributes } ) {
 	);
 
 	const iconToDisplay = selectedIcon?.content || '';
+	const labelHelp = isURLSet
+		? __(
+				'Briefly describe the link destination. When left blank, the icon name is used.'
+		  )
+		: __(
+				'Briefly describe the icon to help screen reader users. Leave blank for decorative icons.'
+		  );
+	const blockProps = useBlockProps( {
+		ref: setPopoverAnchor,
+		onKeyDown,
+	} );
+	const renderedIcon = icon ? (
+		<HtmlRenderer
+			html={ iconToDisplay }
+			wrapperProps={ {
+				className: clsx(
+					colorProps.className,
+					borderProps.className,
+					spacingProps.className,
+					dimensionsProps.className
+				),
+				style: {
+					...colorProps.style,
+					...borderProps.style,
+					...spacingProps.style,
+					...dimensionsProps.style,
+				},
+			} }
+		/>
+	) : (
+		<IconPlaceholder
+			className={ clsx(
+				borderProps.className,
+				spacingProps.className,
+				dimensionsProps.className
+			) }
+			style={ {
+				...borderProps.style,
+				...spacingProps.style,
+				...dimensionsProps.style,
+				height: 'auto',
+			} }
+		/>
+	);
 
 	const blockControls = (
 		<>
@@ -98,6 +200,22 @@ export function Edit( { attributes, setAttributes } ) {
 					{ icon ? __( 'Replace' ) : __( 'Choose icon' ) }
 				</ToolbarButton>
 			</BlockControls>
+			{ icon && (
+				<BlockControls group="block">
+					<ToolbarButton
+						name="link"
+						icon={ isURLSet ? linkOff : link }
+						title={ isURLSet ? __( 'Unlink' ) : __( 'Link' ) }
+						shortcut={
+							isURLSet
+								? displayShortcut.primaryShift( 'k' )
+								: displayShortcut.primary( 'k' )
+						}
+						onClick={ isURLSet ? unlink : startEditing }
+						isActive={ isURLSet }
+					/>
+				</BlockControls>
+			) }
 			{ isContentOnlyMode && icon && (
 				// Add some extra controls for content attributes when content only mode is active.
 				// With content only mode active, the inspector is hidden, so users need another way
@@ -119,9 +237,7 @@ export function Edit( { attributes, setAttributes } ) {
 									onChange={ ( value ) =>
 										setAttributes( { ariaLabel: value } )
 									}
-									help={ __(
-										'Briefly describe the icon to help screen reader users. Leave blank for decorative icons.'
-									) }
+									help={ labelHelp }
 									__next40pxDefaultSize
 								/>
 							) }
@@ -140,6 +256,7 @@ export function Edit( { attributes, setAttributes } ) {
 					resetAll={ () =>
 						setAttributes( {
 							ariaLabel: undefined,
+							rel: undefined,
 						} )
 					}
 					dropdownMenuProps={ dropdownMenuProps }
@@ -154,9 +271,7 @@ export function Edit( { attributes, setAttributes } ) {
 					>
 						<TextControl
 							label={ __( 'Label' ) }
-							help={ __(
-								'Briefly describe the icon to help screen reader users. Leave blank for decorative icons.'
-							) }
+							help={ labelHelp }
 							value={ ariaLabel || '' }
 							onChange={ ( value ) =>
 								setAttributes( { ariaLabel: value } )
@@ -164,6 +279,37 @@ export function Edit( { attributes, setAttributes } ) {
 							__next40pxDefaultSize
 						/>
 					</ToolsPanelItem>
+					{ isURLSet && (
+						<ToolsPanelItem
+							label={ __( 'Link relation' ) }
+							hasValue={ () => !! rel }
+							onDeselect={ () =>
+								setAttributes( { rel: undefined } )
+							}
+						>
+							<TextControl
+								label={ __( 'Link relation' ) }
+								help={ createInterpolateElement(
+									__(
+										'The <a>Link Relation</a> attribute defines the relationship between the linked resource and the current document.'
+									),
+									{
+										a: (
+											<Link
+												href="https://developer.mozilla.org/docs/Web/HTML/Attributes/rel"
+												openInNewTab
+											/>
+										),
+									}
+								) }
+								value={ rel || '' }
+								onChange={ ( value ) =>
+									setAttributes( { rel: value } )
+								}
+								__next40pxDefaultSize
+							/>
+						</ToolsPanelItem>
+					) }
 				</ToolsPanel>
 			</InspectorControls>
 		</>
@@ -173,41 +319,50 @@ export function Edit( { attributes, setAttributes } ) {
 		<>
 			{ blockControls }
 			{ inspectorControls }
-			<div { ...useBlockProps() }>
-				{ icon ? (
-					<HtmlRenderer
-						html={ iconToDisplay }
-						wrapperProps={ {
-							className: clsx(
-								colorProps.className,
-								borderProps.className,
-								spacingProps.className,
-								dimensionsProps.className
-							),
-							style: {
-								...colorProps.style,
-								...borderProps.style,
-								...spacingProps.style,
-								...dimensionsProps.style,
-							},
-						} }
-					/>
+			<div { ...blockProps }>
+				{ isURLSet ? (
+					<a
+						href={ url }
+						className="wp-block-icon__link"
+						onClick={ ( event ) => event.preventDefault() }
+					>
+						{ renderedIcon }
+					</a>
 				) : (
-					<IconPlaceholder
-						className={ clsx(
-							borderProps.className,
-							spacingProps.className,
-							dimensionsProps.className
-						) }
-						style={ {
-							...borderProps.style,
-							...spacingProps.style,
-							...dimensionsProps.style,
-							height: 'auto',
-						} }
-					/>
+					renderedIcon
 				) }
 			</div>
+			{ isSelected && ( isEditingURL || isURLSet ) && (
+				<Popover
+					placement="bottom"
+					onClose={ () => setIsEditingURL( false ) }
+					anchor={ popoverAnchor }
+					focusOnMount={ isEditingURL ? 'firstElement' : false }
+					__unstableSlotName="__unstable-block-tools-after"
+					shift
+				>
+					<LinkControl
+						value={ linkValue }
+						onChange={ ( {
+							url: newURL,
+							opensInNewTab: newOpensInNewTab,
+							nofollow: newNofollow,
+						} ) =>
+							setAttributes(
+								getUpdatedLinkAttributes( {
+									rel,
+									url: newURL,
+									opensInNewTab: newOpensInNewTab,
+									nofollow: newNofollow,
+								} )
+							)
+						}
+						onRemove={ unlink }
+						forceIsEditingLink={ isEditingURL }
+						settings={ LINK_SETTINGS }
+					/>
+				</Popover>
+			) }
 			{ isInserterOpen && (
 				<CustomInserterModal
 					icons={ allIcons }

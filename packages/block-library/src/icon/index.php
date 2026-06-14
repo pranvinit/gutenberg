@@ -97,8 +97,9 @@ function render_block_core_icon( $attributes ) {
 	}
 
 	$aria_label = ! empty( $attributes['ariaLabel'] ) ? $attributes['ariaLabel'] : '';
+	$url        = ! empty( $attributes['url'] ) ? $attributes['url'] : '';
 
-	if ( ! $aria_label ) {
+	if ( $url || ! $aria_label ) {
 		// Icon is decorative, hide it from screen readers.
 		$processor->set_attribute( 'aria-hidden', 'true' );
 		$processor->set_attribute( 'focusable', 'false' );
@@ -108,7 +109,42 @@ function render_block_core_icon( $attributes ) {
 	}
 
 	// Return the updated SVG markup.
-	$svg        = $processor->get_updated_html();
+	$svg = $processor->get_updated_html();
+
+	if ( $url ) {
+		$link_target = ! empty( $attributes['linkTarget'] ) ? $attributes['linkTarget'] : '';
+		$rel         = ! empty( $attributes['rel'] ) ? preg_split( '/\s+/', $attributes['rel'] ) : array();
+
+		if ( '_blank' === $link_target && ! in_array( 'noopener', $rel, true ) ) {
+			$rel[] = 'noopener';
+		}
+
+		$link_attributes = array(
+			'class'      => 'wp-block-icon__link',
+			'href'       => esc_url( $url ),
+			'aria-label' => $aria_label ? $aria_label : $icon['label'],
+		);
+
+		if ( $link_target ) {
+			$link_attributes['target'] = $link_target;
+		}
+
+		$rel = implode( ' ', array_filter( $rel ) );
+		if ( $rel ) {
+			$link_attributes['rel'] = $rel;
+		}
+
+		$link_attributes = array_map(
+			static function ( $name, $value ) {
+				return sprintf( '%s="%s"', $name, esc_attr( $value ) );
+			},
+			array_keys( $link_attributes ),
+			$link_attributes
+		);
+
+		$svg = sprintf( '<a %s>%s</a>', implode( ' ', $link_attributes ), $svg );
+	}
+
 	$attributes = get_block_wrapper_attributes();
 	return sprintf( '<div %s>%s</div>', $attributes, $svg );
 }
