@@ -2,7 +2,12 @@
 	{
 		"name": "core/icon",
 		"isValid": true,
-		"attributes": {},
+		"attributes": {
+			"icon": "core/audio",
+			"url": "https://example.com",
+			"linkTarget": "_blank",
+			"rel": "noopener nofollow"
+		},
 		"innerBlocks": []
 	}
 ]

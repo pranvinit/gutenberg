@@ -1,7 +1,12 @@
 [
 	{
 		"blockName": "core/icon",
-		"attrs": {},
+		"attrs": {
+			"icon": "core/audio",
+			"url": "https://example.com",
+			"linkTarget": "_blank",
+			"rel": "noopener nofollow"
+		},
 		"innerBlocks": [],
 		"innerHTML": "",
 		"innerContent": []
