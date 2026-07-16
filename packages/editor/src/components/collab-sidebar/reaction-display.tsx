@@ -414,6 +414,7 @@ export function AddReactionButton( {
 	disabled = false,
 	onToggleReaction,
 }: AddReactionButtonProps ) {
+	const [ fullPickerFailed, setFullPickerFailed ] = useState( false );
 	const { recordUse } = useFrequentEmojis();
 	const emojis = useReactionEmojis();
 	const emojiBySlug = useMemo(
@@ -421,7 +422,9 @@ export function AddReactionButton( {
 		[ emojis ]
 	);
 	const hasFullPicker =
-		typeof window !== 'undefined' && !! window.gutenbergEmojibaseUrl;
+		! fullPickerFailed &&
+		typeof window !== 'undefined' &&
+		!! window.gutenbergEmojibaseUrl;
 
 	return (
 		<Dropdown
@@ -476,6 +479,9 @@ export function AddReactionButton( {
 							}
 						>
 							<FullEmojiPicker
+								onLoadError={ () =>
+									setFullPickerFailed( true )
+								}
 								onSelect={ ( emoji ) =>
 									// Match against the filtered curated
 									// list, not just the defaults, so a

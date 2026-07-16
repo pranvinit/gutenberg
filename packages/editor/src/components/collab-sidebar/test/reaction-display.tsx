@@ -388,6 +388,37 @@ describe( 'AddReactionButton', () => {
 		}
 	} );
 
+	it( 'falls back to the curated picker when locale data cannot load', async () => {
+		window.gutenbergEmojibaseUrl = `https://failure-${ uniqueNoteId }.test`;
+		const originalFetch = global.fetch;
+		global.fetch = jest.fn( () =>
+			Promise.resolve( { ok: false, json: () => Promise.resolve( {} ) } )
+		);
+
+		try {
+			const user = userEvent.setup();
+			const onToggleReaction = jest.fn();
+			render(
+				<AddReactionButton
+					noteId={ uniqueNoteId }
+					onToggleReaction={ onToggleReaction }
+				/>
+			);
+
+			await user.click(
+				screen.getByRole( 'button', { name: 'Add reaction' } )
+			);
+			await user.click(
+				await screen.findByRole( 'option', { name: 'Rocket' } )
+			);
+
+			expect( onToggleReaction ).toHaveBeenCalledWith( 'rocket' );
+		} finally {
+			global.fetch = originalFetch;
+			delete window.gutenbergEmojibaseUrl;
+		}
+	} );
+
 	it( 'stays focusable but inert when disabled', async () => {
 		const user = userEvent.setup();
 		render(

@@ -19,7 +19,11 @@ import EmojiPicker, {
 	groupEmojis,
 	searchEmojis,
 } from '../emoji-picker';
-import { EMOJIBASE_LOCALES, resolveEmojibaseLocale } from '../emojibase-data';
+import {
+	EMOJIBASE_LOCALES,
+	loadEmojibaseData,
+	resolveEmojibaseLocale,
+} from '../emojibase-data';
 
 jest.mock( '@wordpress/a11y', () => ( { speak: jest.fn() } ) );
 
@@ -41,6 +45,7 @@ describe( 'resolveEmojibaseLocale', () => {
 		expect( resolveEmojibaseLocale( 'FR' ) ).toBe( 'fr' );
 		expect( resolveEmojibaseLocale( 'fr_FR' ) ).toBe( 'fr' );
 		expect( resolveEmojibaseLocale( 'pt_BR' ) ).toBe( 'pt' );
+		expect( resolveEmojibaseLocale( 'zh_Hant_TW' ) ).toBe( 'zh-hant' );
 	} );
 
 	it( 'matches regional variants Emojibase ships', () => {
@@ -64,6 +69,74 @@ describe( 'resolveEmojibaseLocale', () => {
 	it( 'falls back to English for fully unsupported locales', () => {
 		expect( resolveEmojibaseLocale( 'xx' ) ).toBe( 'en' );
 		expect( resolveEmojibaseLocale( 'klingon' ) ).toBe( 'en' );
+	} );
+} );
+
+describe( 'loadEmojibaseData', () => {
+	const originalFetch = global.fetch;
+	const dataset = [ { hexcode: '1F600', emoji: '😀', group: 0 } ];
+	const messages = { groups: [ { order: 0, message: 'Smileys' } ] };
+
+	afterEach( () => {
+		global.fetch = originalFetch;
+	} );
+
+	it( 'falls back to English when localized data cannot be loaded', async () => {
+		global.fetch = jest.fn( ( url ) => {
+			const isEnglish = String( url ).includes( '/en/' );
+			return Promise.resolve( {
+				ok: isEnglish,
+				json: () =>
+					Promise.resolve(
+						String( url ).includes( 'data.json' )
+							? dataset
+							: messages
+					),
+			} );
+		} );
+
+		await expect(
+			loadEmojibaseData( 'https://fallback.test/', 'fr' )
+		).resolves.toEqual( { data: dataset, messages } );
+		expect( global.fetch ).toHaveBeenCalledTimes( 4 );
+		expect( global.fetch ).toHaveBeenLastCalledWith(
+			'https://fallback.test/en/messages.json',
+			expect.any( Object )
+		);
+	} );
+
+	it( 'rejects malformed English data', async () => {
+		global.fetch = jest.fn( ( url ) =>
+			Promise.resolve( {
+				ok: true,
+				json: () =>
+					Promise.resolve(
+						String( url ).includes( 'data.json' ) ? {} : messages
+					),
+			} )
+		);
+
+		await expect(
+			loadEmojibaseData( 'https://invalid.test', 'en' )
+		).rejects.toThrow( 'Invalid en/data.json' );
+	} );
+
+	it( 'caches a successfully loaded locale', async () => {
+		global.fetch = jest.fn( ( url ) =>
+			Promise.resolve( {
+				ok: true,
+				json: () =>
+					Promise.resolve(
+						String( url ).includes( 'data.json' )
+							? dataset
+							: messages
+					),
+			} )
+		);
+
+		await loadEmojibaseData( 'https://cache.test', 'en' );
+		await loadEmojibaseData( 'https://cache.test', 'en' );
+		expect( global.fetch ).toHaveBeenCalledTimes( 2 );
 	} );
 } );
 

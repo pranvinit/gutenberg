@@ -125,7 +125,7 @@ export function resolveEmojibaseLocale( raw: string ): string {
 	if ( typeof raw !== 'string' || ! raw ) {
 		return 'en';
 	}
-	const normalized = raw.toLowerCase().replace( '_', '-' );
+	const normalized = raw.toLowerCase().replaceAll( '_', '-' );
 	if ( EMOJIBASE_LOCALES.has( normalized ) ) {
 		return normalized;
 	}
@@ -135,9 +135,13 @@ export function resolveEmojibaseLocale( raw: string ): string {
 	if ( [ 'zh-tw', 'zh-hk', 'zh-mo' ].includes( normalized ) ) {
 		return 'zh-hant';
 	}
-	const lang = normalized.split( '-' )[ 0 ];
-	if ( EMOJIBASE_LOCALES.has( lang ) ) {
-		return lang;
+	const parts = normalized.split( '-' );
+	while ( parts.length > 1 ) {
+		parts.pop();
+		const candidate = parts.join( '-' );
+		if ( EMOJIBASE_LOCALES.has( candidate ) ) {
+			return candidate;
+		}
 	}
 	return 'en';
 }
@@ -162,6 +166,65 @@ export function detectLocale(): string {
 const dataCache = new Map< string, EmojibaseDataset >();
 const inflight = new Map< string, Promise< EmojibaseDataset > >();
 
+interface LoadEmojibaseDataOptions {
+	signal?: AbortSignal;
+}
+
+function isAbortError( error: unknown ): boolean {
+	return (
+		!! error &&
+		typeof error === 'object' &&
+		'name' in error &&
+		error.name === 'AbortError'
+	);
+}
+
+function isEmojibaseEntry( entry: unknown ): entry is EmojibaseEntry {
+	return (
+		!! entry &&
+		typeof entry === 'object' &&
+		typeof ( entry as EmojibaseEntry ).hexcode === 'string' &&
+		typeof ( entry as EmojibaseEntry ).emoji === 'string'
+	);
+}
+
+function validateDataset(
+	locale: string,
+	data: unknown,
+	messages: unknown
+): EmojibaseDataset {
+	if ( ! Array.isArray( data ) || ! data.every( isEmojibaseEntry ) ) {
+		throw new Error( `Invalid ${ locale }/data.json` );
+	}
+	if ( ! messages || typeof messages !== 'object' ) {
+		throw new Error( `Invalid ${ locale }/messages.json` );
+	}
+	return { data, messages: messages as EmojibaseMessages };
+}
+
+async function fetchEmojibaseLocale(
+	baseUrl: string,
+	locale: string,
+	signal?: AbortSignal
+): Promise< EmojibaseDataset > {
+	const normalizedBaseUrl = baseUrl.replace( /\/$/, '' );
+	const [ dataResponse, messagesResponse ] = await Promise.all( [
+		fetch( `${ normalizedBaseUrl }/${ locale }/data.json`, { signal } ),
+		fetch( `${ normalizedBaseUrl }/${ locale }/messages.json`, { signal } ),
+	] );
+	if ( ! dataResponse.ok ) {
+		throw new Error( `Failed to load ${ locale }/data.json` );
+	}
+	if ( ! messagesResponse.ok ) {
+		throw new Error( `Failed to load ${ locale }/messages.json` );
+	}
+	return validateDataset(
+		locale,
+		await dataResponse.json(),
+		await messagesResponse.json()
+	);
+}
+
 /**
  * Fetch and cache Emojibase `data.json` + `messages.json` for a given
  * locale. Resolves with `{ data, messages }` or rejects on a network
@@ -170,11 +233,13 @@ const inflight = new Map< string, Promise< EmojibaseDataset > >();
  * @param baseUrl Same-origin base URL for the emojibase-data
  *                directory (e.g. plugin's `build/emojibase-data`).
  * @param locale  Emojibase locale key.
+ * @param options Request options, including an optional abort signal.
  * @return Loaded dataset.
  */
 export function loadEmojibaseData(
 	baseUrl: string,
-	locale: string
+	locale: string,
+	options: LoadEmojibaseDataOptions = {}
 ): Promise< EmojibaseDataset > {
 	const cacheKey = `${ baseUrl }|${ locale }`;
 	if ( dataCache.has( cacheKey ) ) {
@@ -183,22 +248,14 @@ export function loadEmojibaseData(
 	if ( inflight.has( cacheKey ) ) {
 		return inflight.get( cacheKey ) as Promise< EmojibaseDataset >;
 	}
-	const promise = Promise.all( [
-		fetch( `${ baseUrl }/${ locale }/data.json` ).then( ( r ) => {
-			if ( ! r.ok ) {
-				throw new Error( `Failed to load ${ locale }/data.json` );
+	const promise = fetchEmojibaseLocale( baseUrl, locale, options.signal )
+		.catch( ( error ) => {
+			if ( isAbortError( error ) || locale === 'en' ) {
+				throw error;
 			}
-			return r.json() as Promise< EmojibaseEntry[] >;
-		} ),
-		fetch( `${ baseUrl }/${ locale }/messages.json` ).then( ( r ) => {
-			if ( ! r.ok ) {
-				throw new Error( `Failed to load ${ locale }/messages.json` );
-			}
-			return r.json() as Promise< EmojibaseMessages >;
-		} ),
-	] )
-		.then( ( [ data, messages ] ) => {
-			const value: EmojibaseDataset = { data, messages };
+			return fetchEmojibaseLocale( baseUrl, 'en', options.signal );
+		} )
+		.then( ( value ) => {
 			dataCache.set( cacheKey, value );
 			inflight.delete( cacheKey );
 			return value;
@@ -236,6 +293,7 @@ export function useEmojibaseData(
 		if ( ! baseUrl ) {
 			return;
 		}
+		const controller = new AbortController();
 		let cancelled = false;
 		const cached = dataCache.get( `${ baseUrl }|${ locale }` );
 		if ( cached ) {
@@ -248,7 +306,7 @@ export function useEmojibaseData(
 			return;
 		}
 		setState( ( prev ) => ( { ...prev, isLoading: true, error: null } ) );
-		loadEmojibaseData( baseUrl, locale )
+		loadEmojibaseData( baseUrl, locale, { signal: controller.signal } )
 			.then( ( { data, messages } ) => {
 				if ( cancelled ) {
 					return;
@@ -261,7 +319,7 @@ export function useEmojibaseData(
 				} );
 			} )
 			.catch( ( error ) => {
-				if ( cancelled ) {
+				if ( cancelled || isAbortError( error ) ) {
 					return;
 				}
 				setState( {
@@ -273,6 +331,7 @@ export function useEmojibaseData(
 			} );
 		return () => {
 			cancelled = true;
+			controller.abort();
 		};
 	}, [ baseUrl, locale ] );
 

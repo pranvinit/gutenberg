@@ -31,6 +31,7 @@ interface EmojiGroup {
 
 interface EmojiPickerProps {
 	onSelect: ( emoji: string ) => void;
+	onLoadError?: () => void;
 }
 
 /**
@@ -133,10 +134,14 @@ export function searchEmojis(
  * same-origin from `window.gutenbergEmojibaseUrl`; UI chrome strings
  * go through `@wordpress/i18n` so GlotPress can translate them.
  *
- * @param props          Component props.
- * @param props.onSelect Called with the selected emoji character.
+ * @param props             Component props.
+ * @param props.onSelect    Called with the selected emoji character.
+ * @param props.onLoadError Called when localized and English data both fail.
  */
-export default function EmojiPicker( { onSelect }: EmojiPickerProps ) {
+export default function EmojiPicker( {
+	onSelect,
+	onLoadError,
+}: EmojiPickerProps ) {
 	const baseUrl =
 		typeof window !== 'undefined'
 			? window.gutenbergEmojibaseUrl ?? null
@@ -150,6 +155,11 @@ export default function EmojiPicker( { onSelect }: EmojiPickerProps ) {
 		baseUrl,
 		locale
 	);
+	useEffect( () => {
+		if ( error ) {
+			onLoadError?.();
+		}
+	}, [ error, onLoadError ] );
 	const [ query, setQuery ] = useState( '' );
 	const viewportRef = useRef< HTMLDivElement >( null );
 	const searchRef = useRef< HTMLInputElement >( null );
