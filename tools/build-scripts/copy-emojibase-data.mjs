@@ -8,12 +8,11 @@
  * translate into a network cost for users.
  *
  * Runs as a step in `tools/build-scripts/build.mjs`, after wp-build has
- * populated `build/`. Exits 0 even when emojibase-data is missing — the
- * editor gracefully degrades by hiding the "More emojis" trigger.
+ * populated `build/`. Missing source files fail the build so release
+ * artifacts cannot advertise a picker URL that serves incomplete data.
  */
 
-import { mkdir, copyFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { access, copyFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -36,7 +35,7 @@ const FILES = [ 'data.json', 'messages.json' ];
 
 // All locales Emojibase ships translated data for. Keep in sync with
 // `EMOJIBASE_LOCALES` in `packages/editor/src/components/collab-sidebar/
-// emojibase-data.js`. Each locale adds ~85KB gzipped on disk; only the
+// emojibase-data.ts`. Each locale adds ~85KB gzipped on disk; only the
 // active locale is fetched per editor session.
 const LOCALES = [
 	'bn',
@@ -70,14 +69,15 @@ const LOCALES = [
 ];
 
 async function copyEmojibaseData() {
-	if ( ! existsSync( SRC_DIR ) ) {
-		console.warn(
-			'⚠️  emojibase-data not found at',
-			SRC_DIR,
-			'— skipping. Run `npm install` to fetch it.'
-		);
-		return;
-	}
+	// Validate the complete source set before writing anything. A partially
+	// copied directory would only fail later at runtime for a subset of users.
+	await Promise.all(
+		LOCALES.flatMap( ( locale ) =>
+			FILES.map( ( file ) =>
+				access( path.join( SRC_DIR, locale, file ) )
+			)
+		)
+	);
 
 	for ( const locale of LOCALES ) {
 		const localeDest = path.join( DEST_DIR, locale );
@@ -85,10 +85,6 @@ async function copyEmojibaseData() {
 		for ( const file of FILES ) {
 			const from = path.join( SRC_DIR, locale, file );
 			const to = path.join( localeDest, file );
-			if ( ! existsSync( from ) ) {
-				console.warn( `⚠️  emojibase-data missing ${ from }` );
-				continue;
-			}
 			await copyFile( from, to );
 		}
 	}
