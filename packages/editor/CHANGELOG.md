@@ -5,7 +5,7 @@
 ### New Features
 
 -   Add an "Attachments" source to the block inserter's Media tab, listing images attached to the current post with the ability to attach and detach them ([#79336](https://github.com/WordPress/gutenberg/pull/79336)).
--   Notes: the add-reaction popover now offers a full searchable emoji picker with a per-user skin tone preference, powered by a self-hosted Emojibase dataset configured via `window.gutenbergEmojibaseUrl` ([#78176](https://github.com/WordPress/gutenberg/pull/78176)).
+-   Notes: the add-reaction popover now offers a full searchable emoji picker with per-user frequently used emojis and a skin tone preference. Localized Emojibase data is self-hosted, loaded on demand, and falls back to English or the curated picker when unavailable ([#78176](https://github.com/WordPress/gutenberg/pull/78176)).
 
 ### Enhancements
 
