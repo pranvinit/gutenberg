@@ -1,7 +1,9 @@
 import { store as blocksStore } from '@wordpress/blocks';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import {
+	Button,
 	FlexItem,
+	privateApis as componentsPrivateApis,
 	SearchControl,
 	__experimentalHStack as HStack,
 	__experimentalText as WCText,
@@ -9,7 +11,9 @@ import {
 import { useSelect } from '@wordpress/data';
 import {
 	useState,
+	useContext,
 	useEffect,
+	useMemo,
 	useRef,
 	useDeferredValue,
 	memo,
@@ -21,11 +25,17 @@ import {
 } from '@wordpress/block-editor';
 import { useDebounce } from '@wordpress/compose';
 import { speak } from '@wordpress/a11y';
+import { funnel } from '@wordpress/icons';
 import { useBlockVariations } from './variations/variations-panel';
 import { ScreenHeader } from './screen-header';
 import { NavigationButtonAsItem } from './navigation-button';
 import { useSetting } from './hooks';
 import { unlock } from './lock-unlock';
+import { GlobalStylesContext } from './context';
+import {
+	getUserStylesSummary,
+	hasUserStylesForBlock,
+} from './block-customizations';
 
 const {
 	useHasDimensionsPanel,
@@ -35,6 +45,10 @@ const {
 	useHasColorPanel,
 	useHasBackgroundPanel,
 } = unlock( blockEditorPrivateApis );
+
+const { Menu } = unlock( componentsPrivateApis );
+
+type StyleFilter = 'all' | 'customized';
 
 function useSortedBlockTypes() {
 	const blockItems = useSelect(
@@ -80,46 +94,128 @@ export function useBlockHasGlobalStyles( blockName: string ) {
 
 interface BlockMenuItemProps {
 	block: any;
+	isCustomized: boolean;
+	summary: string;
 }
 
-function BlockMenuItem( { block }: BlockMenuItemProps ) {
+function BlockMenuItem( { block, isCustomized, summary }: BlockMenuItemProps ) {
 	const hasBlockMenuItem = useBlockHasGlobalStyles( block.name );
 	if ( ! hasBlockMenuItem ) {
 		return null;
 	}
+	const visibleSummary = summary || __( 'Customized' );
+	const accessibleSummary = summary
+		? sprintf(
+				/* translators: %s: a list of customized style categories. */
+				__( 'Customized styles: %s' ),
+				summary
+		  )
+		: __( 'Customized styles' );
 
 	return (
 		<NavigationButtonAsItem
 			path={ '/blocks/' + encodeURIComponent( block.name ) }
 		>
-			<HStack justify="flex-start">
-				<BlockIcon icon={ block.icon } />
-				<FlexItem>{ block.title }</FlexItem>
+			<HStack
+				justify="flex-start"
+				alignment={ isCustomized ? 'flex-start' : 'center' }
+				spacing={ 2 }
+			>
+				<BlockIcon
+					className="global-styles-ui-block-types-item__icon"
+					icon={ block.icon }
+				/>
+				<FlexItem>
+					{ block.title }
+					{ isCustomized && (
+						<span
+							className="global-styles-ui-block-types-item__summary"
+							aria-label={ accessibleSummary }
+						>
+							{ visibleSummary }
+						</span>
+					) }
+				</FlexItem>
 			</HStack>
 		</NavigationButtonAsItem>
 	);
 }
 
-interface BlockListProps {
+function EmptyBlockList( {
+	filterValue,
+	styleFilter,
+}: {
 	filterValue: string;
+	styleFilter: StyleFilter;
+} ) {
+	const label =
+		filterValue || 'all' === styleFilter
+			? __( 'No blocks found.' )
+			: __( "You haven't customized any blocks yet." );
+	return (
+		<WCText
+			align="center"
+			as="p"
+			className="global-styles-ui-block-types-item-list__no-results"
+		>
+			{ label }
+		</WCText>
+	);
 }
 
-function BlockList( { filterValue }: BlockListProps ) {
+interface BlockListProps {
+	filterValue: string;
+	styleFilter: StyleFilter;
+}
+
+function BlockList( { filterValue, styleFilter }: BlockListProps ) {
 	const sortedBlockTypes = useSortedBlockTypes();
 	const debouncedSpeak = useDebounce( speak, 500 );
-	const { isMatchingSearchTerm } = useSelect( blocksStore );
+	const { isMatchingSearchTerm, getBlockStyles } = useSelect( blocksStore );
+	const { user } = useContext( GlobalStylesContext );
 
-	const filteredBlockTypes = ! filterValue
+	// Compute once for the whole list rather than subscribing to context in each
+	// row. A customized block can have an empty summary when its category is not
+	// represented in the global styles changelist.
+	const customizedBlocks = useMemo( () => {
+		const summaries = new Map< string, string >();
+		const blockNames = new Set( [
+			...Object.keys( user?.styles?.blocks ?? {} ),
+			...Object.keys( user?.settings?.blocks ?? {} ),
+		] );
+		blockNames.forEach( ( blockName ) => {
+			if ( hasUserStylesForBlock( user, blockName ) ) {
+				summaries.set(
+					blockName,
+					getUserStylesSummary(
+						user,
+						blockName,
+						getBlockStyles( blockName )
+					)
+				);
+			}
+		} );
+		return summaries;
+	}, [ user, getBlockStyles ] );
+
+	const searchedBlockTypes = ! filterValue
 		? sortedBlockTypes
 		: sortedBlockTypes.filter( ( blockType ) =>
 				isMatchingSearchTerm( blockType, filterValue )
 		  );
 
+	const filteredBlockTypes =
+		styleFilter === 'customized'
+			? searchedBlockTypes.filter( ( blockType ) =>
+					customizedBlocks.has( blockType.name )
+			  )
+			: searchedBlockTypes;
+
 	const blockTypesListRef = useRef< HTMLDivElement >( null );
 
-	// Announce search results on change
+	// Announce result count on change
 	useEffect( () => {
-		if ( ! filterValue ) {
+		if ( ! filterValue && styleFilter === 'all' ) {
 			return;
 		}
 		// We extract the results from the wrapper div's `ref` because
@@ -137,7 +233,7 @@ function BlockList( { filterValue }: BlockListProps ) {
 			count
 		);
 		debouncedSpeak( resultsFoundMessage, 'polite' );
-	}, [ filterValue, debouncedSpeak ] );
+	}, [ filterValue, styleFilter, debouncedSpeak ] );
 
 	return (
 		<div
@@ -147,13 +243,16 @@ function BlockList( { filterValue }: BlockListProps ) {
 			role="list"
 		>
 			{ filteredBlockTypes.length === 0 ? (
-				<WCText align="center" as="p">
-					{ __( 'No blocks found.' ) }
-				</WCText>
+				<EmptyBlockList
+					filterValue={ filterValue }
+					styleFilter={ styleFilter }
+				/>
 			) : (
 				filteredBlockTypes.map( ( block ) => (
 					<BlockMenuItem
 						block={ block }
+						isCustomized={ customizedBlocks.has( block.name ) }
+						summary={ customizedBlocks.get( block.name ) ?? '' }
 						key={ 'menu-itemblock-' + block.name }
 					/>
 				) )
@@ -166,6 +265,7 @@ const MemoizedBlockList = memo( BlockList );
 
 function ScreenBlockList() {
 	const [ filterValue, setFilterValue ] = useState( '' );
+	const [ styleFilter, setStyleFilter ] = useState< StyleFilter >( 'all' );
 	const deferredFilterValue = useDeferredValue( filterValue );
 
 	return (
@@ -176,14 +276,60 @@ function ScreenBlockList() {
 					'Customize the appearance of specific blocks and for the whole site.'
 				) }
 			/>
-			<SearchControl
-				className="global-styles-ui-block-types-search"
-				onChange={ setFilterValue }
-				value={ filterValue }
-				label={ __( 'Search' ) }
-				placeholder={ __( 'Search' ) }
+			<HStack
+				className="global-styles-ui-block-types-filter"
+				alignment="center"
+				spacing={ 2 }
+			>
+				<SearchControl
+					className="global-styles-ui-block-types-search"
+					onChange={ setFilterValue }
+					value={ filterValue }
+					label={ __( 'Search' ) }
+					placeholder={ __( 'Search' ) }
+					size="compact"
+				/>
+				<Menu>
+					<Menu.TriggerButton
+						render={
+							<Button
+								size="compact"
+								icon={ funnel }
+								label={ __( 'Filter blocks' ) }
+								isPressed={ styleFilter !== 'all' }
+							/>
+						}
+					/>
+					<Menu.Popover>
+						<Menu.RadioItem
+							name="global-styles-block-filter"
+							value="all"
+							checked={ styleFilter === 'all' }
+							onChange={ () => setStyleFilter( 'all' ) }
+							hideOnClick
+						>
+							<Menu.ItemLabel>
+								{ __( 'All blocks' ) }
+							</Menu.ItemLabel>
+						</Menu.RadioItem>
+						<Menu.RadioItem
+							name="global-styles-block-filter"
+							value="customized"
+							checked={ styleFilter === 'customized' }
+							onChange={ () => setStyleFilter( 'customized' ) }
+							hideOnClick
+						>
+							<Menu.ItemLabel>
+								{ __( 'Customized' ) }
+							</Menu.ItemLabel>
+						</Menu.RadioItem>
+					</Menu.Popover>
+				</Menu>
+			</HStack>
+			<MemoizedBlockList
+				filterValue={ deferredFilterValue }
+				styleFilter={ styleFilter }
 			/>
-			<MemoizedBlockList filterValue={ deferredFilterValue } />
 		</>
 	);
 }
