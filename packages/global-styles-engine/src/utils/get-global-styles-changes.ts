@@ -10,7 +10,7 @@ interface GetGlobalStylesChangesOptions {
 	maxResults?: number;
 }
 
-const globalStylesChangesCache = new Map< string, ChangeEntry[] >();
+let globalStylesChangesCache: { key: string; value: ChangeEntry[] } | undefined;
 const EMPTY_ARRAY: string[] = [];
 const translationMap: TranslationMap = {
 	caption: __( 'Caption' ),
@@ -165,7 +165,8 @@ function pickComparedStyles( config: any ): Record< string, any > {
 
 /**
  * Returns an array of translated summarized global styles changes.
- * Results are cached using a Map() key of `JSON.stringify( { next, previous } )`.
+ * The most recent comparison is cached using a key of
+ * `JSON.stringify( { next, previous } )`.
  *
  * @param next     The changed object to compare.
  * @param previous The original object to compare against.
@@ -177,8 +178,8 @@ export function getGlobalStylesChangelist(
 ): ChangeEntry[] {
 	const cacheKey = JSON.stringify( { next, previous } );
 
-	if ( globalStylesChangesCache.has( cacheKey ) ) {
-		return globalStylesChangesCache.get( cacheKey )!;
+	if ( globalStylesChangesCache?.key === cacheKey ) {
+		return globalStylesChangesCache.value;
 	}
 
 	/*
@@ -205,8 +206,9 @@ export function getGlobalStylesChangelist(
 		! changedValueTree ||
 		( Array.isArray( changedValueTree ) && ! changedValueTree.length )
 	) {
-		globalStylesChangesCache.set( cacheKey, [] );
-		return [];
+		const result: ChangeEntry[] = [];
+		globalStylesChangesCache = { key: cacheKey, value: result };
+		return result;
 	}
 
 	const changedValueArray = Array.isArray( changedValueTree )
@@ -227,7 +229,7 @@ export function getGlobalStylesChangelist(
 			return acc;
 		}, [] );
 
-	globalStylesChangesCache.set( cacheKey, result );
+	globalStylesChangesCache = { key: cacheKey, value: result };
 
 	return result;
 }

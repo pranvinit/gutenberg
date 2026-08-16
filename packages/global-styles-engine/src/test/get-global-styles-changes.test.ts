@@ -272,7 +272,7 @@ describe( 'getGlobalStylesChanges and utils', () => {
 	} );
 
 	describe( 'getGlobalStylesChangelist()', () => {
-		it( 'compares two objects and returns a cached list of changed keys', () => {
+		it( 'compares two objects and returns the cached result for the same values', () => {
 			const resultA = getGlobalStylesChangelist( next, previous );
 
 			expect( resultA ).toEqual( [
@@ -295,7 +295,7 @@ describe( 'getGlobalStylesChanges and utils', () => {
 
 			const resultB = getGlobalStylesChangelist( next, previous );
 
-			expect( resultB ).toEqual( resultA );
+			expect( resultB ).toBe( resultA );
 		} );
 	} );
 } );

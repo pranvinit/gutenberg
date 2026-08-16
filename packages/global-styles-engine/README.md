@@ -83,6 +83,16 @@ const updated = setSetting(
 
 Extract color palettes organized by origin (theme, custom, default).
 
+#### `getGlobalStylesChangelist(next, previous)`
+
+Compare two Global Styles configurations and return translated change labels
+grouped by `styles`, `blocks`, `elements`, or `settings`.
+
+```typescript
+const changes = getGlobalStylesChangelist( next, previous );
+// [ [ 'styles', 'Typography' ], [ 'blocks', 'Quote' ] ]
+```
+
 #### `generateGlobalStyles(globalStyles)`
 
 Generate CSS from global styles object.
