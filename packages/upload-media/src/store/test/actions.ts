@@ -2,6 +2,7 @@ import { createRegistry } from '@wordpress/data';
 type WPDataRegistry = ReturnType< typeof createRegistry >;
 import { store as uploadStore } from '..';
 import { ItemStatus, OperationType } from '../types';
+import { ErrorCode } from '../../upload-error';
 import { unlock } from '../../lock-unlock';
 jest.mock( '@wordpress/blob', () => ( {
 	__esModule: true,
@@ -392,6 +393,44 @@ describe( 'actions', () => {
 				true
 			);
 			expect( updatedItem.additionalData.convert_format ).toBe( true );
+		} );
+
+		it( 'routes a HEIC file named .jpg through HEIC conversion', async () => {
+			const contents = 'ftypheic\0\0\0\0mif1';
+			const file = new File(
+				[
+					new Uint8Array( [
+						0,
+						0,
+						0,
+						4 + contents.length,
+						...[ ...contents ].map( ( character ) =>
+							character.charCodeAt( 0 )
+						),
+					] ),
+				],
+				'photo.jpg',
+				{ type: 'image/jpeg' }
+			);
+			const onError = jest.fn();
+
+			unlock( registry.dispatch( uploadStore ) ).addItem( {
+				file,
+				onError,
+			} );
+			const item = unlock(
+				registry.select( uploadStore )
+			).getAllItems()[ 0 ];
+
+			await unlock( registry.dispatch( uploadStore ) ).prepareItem(
+				item.id
+			);
+
+			expect( onError ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					code: ErrorCode.HEIC_DECODE_ERROR,
+				} )
+			);
 		} );
 	} );
 

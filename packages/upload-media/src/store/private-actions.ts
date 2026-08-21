@@ -6,18 +6,23 @@ type WPDataRegistry = ReturnType< typeof createRegistry >;
 import {
 	cloneFile,
 	convertBlobToFile,
+	getFileBasename,
 	isAnimatedGif,
 	renameFile,
 } from '../utils';
 import { canvasConvertToJpeg } from '../canvas-utils';
 import { getHeicUnsupportedMessage } from '../heic-support';
-import { getUnappliedExifOrientation } from '../heic-parser';
+import {
+	getUnappliedExifOrientation,
+	HEIC_MIME_TYPES,
+	isHeicFile,
+} from '../heic-parser';
 import {
 	isClientSideMediaSupported,
 	exceedsClientProcessingMemory,
 } from '../feature-detection';
 import { getImageDimensions } from '../get-image-dimensions';
-import { CLIENT_SIDE_SUPPORTED_MIME_TYPES, HEIC_MIME_TYPES } from './constants';
+import { CLIENT_SIDE_SUPPORTED_MIME_TYPES } from './constants';
 import { StubFile } from '../stub-file';
 import { ErrorCode, UploadError } from '../upload-error';
 import { debug, measure } from './utils/debug-logger';
@@ -823,11 +828,18 @@ export function prepareItem( id: QueueItemId ) {
 
 		let heicJpeg: File | null = null;
 
-		const isImage = file.type.startsWith( 'image/' );
-		const isVipsSupported = CLIENT_SIDE_SUPPORTED_MIME_TYPES.includes(
-			file.type
-		);
-		const isHeic = HEIC_MIME_TYPES.includes( file.type );
+		const isHeic = await isHeicFile( file );
+		const isMisnamedHeic =
+			isHeic && ! HEIC_MIME_TYPES.includes( file.type );
+		const isImage = file.type.startsWith( 'image/' ) || isHeic;
+		const isVipsSupported =
+			! isHeic && CLIENT_SIDE_SUPPORTED_MIME_TYPES.includes( file.type );
+		const heicFile = isMisnamedHeic
+			? new File( [ file ], `${ getFileBasename( file.name ) }.heic`, {
+					type: HEIC_MIME_TYPES[ 0 ],
+					lastModified: file.lastModified,
+			  } )
+			: file;
 
 		// Gate very large images out of client-side processing. wasm-vips is
 		// capped at 1 GiB of memory, so high-megapixel images, especially
@@ -847,7 +859,7 @@ export function prepareItem( id: QueueItemId ) {
 		// images routed to the server: the gain map is only preserved by the
 		// client-side resize path, and the probe runs wasm-vips, which the
 		// large-image gate above is specifically meant to avoid.
-		if ( file.type === 'image/jpeg' && ! tooLargeForClient ) {
+		if ( file.type === 'image/jpeg' && ! isHeic && ! tooLargeForClient ) {
 			operations.push( OperationType.DetectUltraHdr );
 		}
 
@@ -880,7 +892,7 @@ export function prepareItem( id: QueueItemId ) {
 			// This matches iOS behavior where HEIC is converted on the fly.
 			try {
 				heicJpeg = await canvasConvertToJpeg(
-					file,
+					heicFile,
 					settings.imageQuality ?? DEFAULT_OUTPUT_QUALITY
 				);
 			} catch {
@@ -926,7 +938,7 @@ export function prepareItem( id: QueueItemId ) {
 			updates = {
 				file: heicJpeg,
 				sourceFile: heicJpeg,
-				originalHeicFile: item.file,
+				originalHeicFile: heicFile,
 				additionalData: {
 					...item.additionalData,
 					generate_sub_sizes: ! vipsAvailable,
