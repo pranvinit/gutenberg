@@ -53,6 +53,135 @@ export interface HeicImageData {
 	exifOrientation: number;
 }
 
+/** HEIC/HEIF MIME types. */
+export const HEIC_MIME_TYPES: readonly string[] = [
+	'image/heic',
+	'image/heif',
+] as const;
+
+const FILE_TYPE_BOX_HEADER_BYTES = 24;
+const MAX_FILE_TYPE_BOX_BYTES = 4096;
+const HEIC_BRANDS = [
+	'heic',
+	'heix',
+	'heim',
+	'heis',
+	'hevc',
+	'hevx',
+	'hevm',
+	'hevs',
+	'mif1',
+	'msf1',
+];
+const AVIF_BRANDS = [ 'avif', 'avis' ];
+
+function readFourCc( view: DataView, offset: number ): string {
+	return String.fromCharCode(
+		view.getUint8( offset ),
+		view.getUint8( offset + 1 ),
+		view.getUint8( offset + 2 ),
+		view.getUint8( offset + 3 )
+	);
+}
+
+function getFileTypeBoxInfo(
+	buffer: ArrayBuffer
+): { size: number; contentOffset: number } | null {
+	const view = new DataView( buffer );
+	if ( view.byteLength < 16 || readFourCc( view, 4 ) !== 'ftyp' ) {
+		return null;
+	}
+
+	let size = view.getUint32( 0 );
+	let contentOffset = 8;
+	if ( size === 1 ) {
+		if ( view.byteLength < FILE_TYPE_BOX_HEADER_BYTES ) {
+			return null;
+		}
+		const high = view.getUint32( 8 );
+		const low = view.getUint32( 12 );
+		size = high * 0x100000000 + low;
+		contentOffset = 16;
+	}
+
+	if (
+		! Number.isSafeInteger( size ) ||
+		size < contentOffset + 8 ||
+		size > MAX_FILE_TYPE_BOX_BYTES
+	) {
+		return null;
+	}
+
+	return { size, contentOffset };
+}
+
+/**
+ * Detects whether a complete ISOBMFF File Type Box identifies HEIC/HEIF.
+ *
+ * AVIF uses the same container and can declare a generic HEIF compatible
+ * brand, so its format-specific brands take precedence.
+ *
+ * @param buffer File Type Box bytes.
+ * @return Whether the box identifies a HEIC/HEIF image.
+ */
+export function isHeicBuffer( buffer: ArrayBuffer ): boolean {
+	const info = getFileTypeBoxInfo( buffer );
+	if ( ! info || buffer.byteLength < info.size ) {
+		return false;
+	}
+
+	const view = new DataView( buffer, 0, info.size );
+	const brands = [ readFourCc( view, info.contentOffset ) ];
+	for (
+		let offset = info.contentOffset + 8;
+		offset + 4 <= info.size;
+		offset += 4
+	) {
+		brands.push( readFourCc( view, offset ) );
+	}
+
+	if ( brands.some( ( brand ) => AVIF_BRANDS.includes( brand ) ) ) {
+		return false;
+	}
+
+	return brands.some( ( brand ) => HEIC_BRANDS.includes( brand ) );
+}
+
+/**
+ * Detects whether a file is a HEIC/HEIF image regardless of its extension.
+ *
+ * Browsers infer `File.type` from the file name. For plausible image files,
+ * inspect the ISOBMFF File Type Box so a HEIC image named `.jpg` or `.png`
+ * still reaches the HEIC conversion path.
+ *
+ * @param file File to inspect.
+ * @return Whether the file is a HEIC/HEIF image.
+ */
+export async function isHeicFile( file: File ): Promise< boolean > {
+	if ( HEIC_MIME_TYPES.includes( file.type ) ) {
+		return true;
+	}
+
+	if ( file.type && ! file.type.startsWith( 'image/' ) ) {
+		return false;
+	}
+
+	try {
+		const header = await file
+			.slice( 0, FILE_TYPE_BOX_HEADER_BYTES )
+			.arrayBuffer();
+		const info = getFileTypeBoxInfo( header );
+		if ( ! info ) {
+			return false;
+		}
+
+		return isHeicBuffer( await file.slice( 0, info.size ).arrayBuffer() );
+	} catch {
+		// Leave unreadable files to the upload path, which reports the error.
+		return false;
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Binary reader
 // ---------------------------------------------------------------------------
