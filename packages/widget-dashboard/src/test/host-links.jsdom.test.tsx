@@ -75,7 +75,7 @@ describe( 'host links across the chrome compositions', () => {
 				label: 'Export data',
 				relevance: 'medium',
 				icon: <svg />,
-				href: 'files/export.csv',
+				href: MATCHED_HREF,
 				download: 'export.csv',
 			},
 		];
@@ -148,13 +148,13 @@ describe( 'host links across the chrome compositions', () => {
 			{
 				id: 'external',
 				label: 'External guide',
-				href: 'https://example.com/guide',
+				href: MATCHED_HREF,
 				openInNewTab: true,
 			},
 			{
 				id: 'export',
 				label: 'Export data',
-				href: 'files/export.csv',
+				href: MATCHED_HREF,
 				download: 'export.csv',
 			},
 		];

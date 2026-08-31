@@ -3,9 +3,8 @@ import { __ } from '@wordpress/i18n';
 import { moreVertical } from '@wordpress/icons';
 // eslint-disable-next-line @wordpress/use-recommended-components
 import { Icon, IconButton, Link } from '@wordpress/ui';
-import { useWidgetHost } from '@wordpress/widget-primitives';
+import { HostLink } from '@wordpress/widget-primitives';
 import type { WidgetAction } from '@wordpress/widget-primitives';
-import { getActionRoute } from './get-action-route';
 import { useReserveHeaderSpace } from '../widget-header/widget-header-fit';
 import styles from './widget-actions.module.css';
 import { unlock } from '../../lock-unlock';
@@ -40,7 +39,6 @@ export function WidgetActions( {
 	actions,
 }: WidgetActionsProps ): React.ReactNode {
 	const reserveRef = useReserveHeaderSpace< HTMLSpanElement >( 'actions' );
-	const { links } = useWidgetHost();
 
 	if ( actions.length === 0 ) {
 		return null;
@@ -64,8 +62,11 @@ export function WidgetActions( {
 				<Menu.Popover>
 					<Menu.Group className={ styles[ 'widget-action-items' ] }>
 						{ actions.map( ( action ) => {
-							const path = getActionRoute( links, action );
-							const HostLink = links?.Link;
+							const hostLinkRender =
+								action.download ||
+								action.openInNewTab ? undefined : (
+									<HostLink href={ action.href } />
+								);
 
 							return (
 								<Menu.Item
@@ -76,31 +77,20 @@ export function WidgetActions( {
 										) : undefined
 									}
 									render={
-										path !== null && HostLink ? (
-											<Link
-												className={
-													styles[
-														'widget-action-link'
-													]
-												}
-												render={
-													<HostLink path={ path } />
-												}
-											/>
-										) : (
-											<Link
-												href={ action.href }
-												download={ action.download }
-												openInNewTab={
-													action.openInNewTab
-												}
-												className={
-													styles[
-														'widget-action-link'
-													]
-												}
-											/>
-										)
+										<Link
+											{ ...( hostLinkRender
+												? { render: hostLinkRender }
+												: {
+														href: action.href,
+														download:
+															action.download,
+														openInNewTab:
+															action.openInNewTab,
+												  } ) }
+											className={
+												styles[ 'widget-action-link' ]
+											}
+										/>
 									}
 								>
 									{ action.label }

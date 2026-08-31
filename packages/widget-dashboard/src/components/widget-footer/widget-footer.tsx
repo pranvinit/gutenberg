@@ -1,9 +1,8 @@
 import { __, sprintf } from '@wordpress/i18n';
 // eslint-disable-next-line @wordpress/use-recommended-components
 import { Icon, Link, LinkButton, Stack, Tooltip } from '@wordpress/ui';
-import { useWidgetHost } from '@wordpress/widget-primitives';
+import { HostLink } from '@wordpress/widget-primitives';
 import type { WidgetAction, WidgetIcon } from '@wordpress/widget-primitives';
-import { getActionRoute } from '../widget-actions/get-action-route';
 import styles from './widget-footer.module.css';
 
 type IconActionProps = {
@@ -16,7 +15,7 @@ type IconActionProps = {
 	 * Host router link to mount instead of the plain anchor, when the
 	 * action's target is one of the host's own routes.
 	 */
-	routeRender?: React.ReactElement;
+	hostLinkRender?: React.ReactElement;
 };
 
 /**
@@ -28,7 +27,7 @@ type IconActionProps = {
  */
 function IconAction( {
 	action,
-	routeRender,
+	hostLinkRender,
 }: IconActionProps ): React.ReactNode {
 	const label = action.openInNewTab
 		? sprintf(
@@ -48,14 +47,14 @@ function IconAction( {
 						size="compact"
 						className={ styles[ 'icon-action' ] }
 						aria-label={ label }
-						{ ...( routeRender
+						{ ...( hostLinkRender
 							? {}
 							: {
 									href: action.href,
 									download: action.download,
 							  } ) }
 						render={
-							routeRender ??
+							hostLinkRender ??
 							( action.openInNewTab ? (
 								/* href and content merge in at runtime. */
 								// eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/anchor-is-valid
@@ -100,9 +99,6 @@ export function WidgetFooter( {
 	actions,
 	editMode = false,
 }: WidgetFooterProps ): React.ReactNode {
-	const { links } = useWidgetHost();
-	const HostLink = links?.Link;
-
 	if ( actions.length === 0 ) {
 		return null;
 	}
@@ -125,7 +121,11 @@ export function WidgetFooter( {
 			{ highActions.length > 0 && (
 				<Stack direction="row" align="center" gap="lg" wrap="wrap">
 					{ highActions.map( ( action ) => {
-						const path = getActionRoute( links, action );
+						const hostLinkRender =
+							action.download ||
+							action.openInNewTab ? undefined : (
+								<HostLink href={ action.href } />
+							);
 						const className = action.icon
 							? styles[ 'prefixed-action' ]
 							: undefined;
@@ -136,20 +136,16 @@ export function WidgetFooter( {
 							</>
 						);
 
-						return path !== null && HostLink ? (
+						return (
 							<Link
 								key={ action.id }
-								className={ className }
-								render={ <HostLink path={ path } /> }
-							>
-								{ children }
-							</Link>
-						) : (
-							<Link
-								key={ action.id }
-								href={ action.href }
-								download={ action.download }
-								openInNewTab={ action.openInNewTab }
+								{ ...( hostLinkRender
+									? { render: hostLinkRender }
+									: {
+											href: action.href,
+											download: action.download,
+											openInNewTab: action.openInNewTab,
+									  } ) }
 								className={ className }
 							>
 								{ children }
@@ -168,11 +164,11 @@ export function WidgetFooter( {
 				>
 					<Tooltip.Provider>
 						{ mediumActions.map( ( action ) => {
-							const path = getActionRoute( links, action );
-							const routeRender =
-								path !== null && HostLink ? (
-									<HostLink path={ path } />
-								) : undefined;
+							const hostLinkRender =
+								action.download ||
+								action.openInNewTab ? undefined : (
+									<HostLink href={ action.href } />
+								);
 
 							if ( action.icon ) {
 								return (
@@ -182,21 +178,22 @@ export function WidgetFooter( {
 											...action,
 											icon: action.icon,
 										} }
-										routeRender={ routeRender }
+										hostLinkRender={ hostLinkRender }
 									/>
 								);
 							}
 
-							return routeRender ? (
-								<Link key={ action.id } render={ routeRender }>
-									{ action.label }
-								</Link>
-							) : (
+							return (
 								<Link
 									key={ action.id }
-									href={ action.href }
-									download={ action.download }
-									openInNewTab={ action.openInNewTab }
+									{ ...( hostLinkRender
+										? { render: hostLinkRender }
+										: {
+												href: action.href,
+												download: action.download,
+												openInNewTab:
+													action.openInNewTab,
+										  } ) }
 								>
 									{ action.label }
 								</Link>
