@@ -156,6 +156,36 @@ unset( $gutenberg_note_mentions_priority );
 add_action( 'rest_insert_comment', 'gutenberg_notify_note_mentions', 10, 3 );
 
 /**
+ * Strips HTML from note content in the post author's notification email.
+ *
+ * Core's general note notification is declared as plain text but includes the
+ * saved HTML content unchanged. Replace only that content so mention chips and
+ * other markup are not exposed by mail clients that honor the content type.
+ *
+ * @since 7.1.0
+ *
+ * @param string $message    Notification email text.
+ * @param string $comment_id Comment ID as a numeric string.
+ * @return string Notification email text with plain-text note content.
+ */
+function gutenberg_strip_note_notification_content( string $message, string $comment_id ): string {
+	$comment = get_comment( $comment_id );
+	if ( ! $comment instanceof WP_Comment || 'note' !== $comment->comment_type ) {
+		return $message;
+	}
+
+	$content  = wp_specialchars_decode( $comment->comment_content );
+	$position = strpos( $message, $content );
+	if ( false === $position ) {
+		return $message;
+	}
+
+	$plain_content = wp_specialchars_decode( wp_strip_all_tags( $comment->comment_content ) );
+	return substr_replace( $message, $plain_content, $position, strlen( $content ) );
+}
+add_filter( 'comment_notification_text', 'gutenberg_strip_note_notification_content', 10, 2 );
+
+/**
  * Sends a single note mention notification email.
  *
  * The email is composed in the recipient's locale, matching how core composes
