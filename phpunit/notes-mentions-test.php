@@ -29,7 +29,7 @@ class Tests_Notes_Mentions extends WP_UnitTestCase {
 	/**
 	 * Captured wp_mail() calls for the current test.
 	 *
-	 * @var array<array{to: string[], subject: string, message: string}>
+	 * @var array<array{to: string[], subject: string, message: string, headers: string|string[]}>
 	 */
 	private array $sent = array();
 
@@ -80,8 +80,8 @@ class Tests_Notes_Mentions extends WP_UnitTestCase {
 	/**
 	 * Records wp_mail() calls and short-circuits delivery.
 	 *
-	 * @param null                                              $short_circuit Short-circuit value.
-	 * @param array{ to: string|string[], subject: string, message: string } $atts wp_mail() arguments.
+	 * @param null                                                                      $short_circuit Short-circuit value.
+	 * @param array{ to: string|string[], subject: string, message: string, headers: string|string[] } $atts wp_mail() arguments.
 	 * @return bool Always true to indicate a "sent" message.
 	 */
 	public function capture_mail( $short_circuit, $atts ): bool {
@@ -90,6 +90,7 @@ class Tests_Notes_Mentions extends WP_UnitTestCase {
 			'to'      => $to,
 			'subject' => (string) $atts['subject'],
 			'message' => (string) $atts['message'],
+			'headers' => $atts['headers'],
 		);
 		foreach ( $to as $recipient ) {
 			$this->sent_to[] = $recipient;
@@ -198,6 +199,7 @@ class Tests_Notes_Mentions extends WP_UnitTestCase {
 		// The note text is included, stripped of markup.
 		$this->assertStringContainsString( 'Please review @Reviewer', $email['message'] );
 		$this->assertStringNotContainsString( '<span', $email['message'] );
+		$this->assertStringContainsString( 'Content-Type: text/plain', implode( "\n", (array) $email['headers'] ) );
 		// The email links to the post editor, as core's own note email does.
 		$this->assertStringContainsString(
 			get_edit_post_link( self::$post->ID, 'url' ),
@@ -321,6 +323,35 @@ class Tests_Notes_Mentions extends WP_UnitTestCase {
 
 		$this->assertSame( 201, $response->get_status() );
 		$this->assertContains( self::$mentioned->user_email, $this->sent_to );
+	}
+
+	/**
+	 * The post author receives Core's general note notification rather than the
+	 * dedicated mention notification, so its plain-text body must also strip
+	 * mention markup.
+	 *
+	 * @covers ::gutenberg_strip_note_notification_content
+	 */
+	public function test_rest_note_creation_sends_post_author_plain_text_content(): void {
+		wp_set_current_user( self::$commenter->ID );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/comments' );
+		$request->set_param( 'post', self::$post->ID );
+		$request->set_param( 'type', 'note' );
+		$request->set_param(
+			'content',
+			'<p>Please review ' . self::mention( self::$post_author->ID, '@Author' ) . ' and &lt;code&gt;.</p>'
+		);
+
+		$response = rest_get_server()->dispatch( $request );
+
+		$this->assertSame( 201, $response->get_status() );
+		$this->assertCount( 1, $this->sent );
+		$email = $this->sent[0];
+		$this->assertContains( self::$post_author->user_email, $email['to'] );
+		$this->assertStringContainsString( 'Please review @Author and <code>.', $email['message'] );
+		$this->assertStringNotContainsString( '<span', $email['message'] );
+		$this->assertStringContainsString( 'Content-Type: text/plain', implode( "\n", (array) $email['headers'] ) );
 	}
 
 	/**
