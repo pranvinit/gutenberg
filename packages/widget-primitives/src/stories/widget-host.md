@@ -10,7 +10,7 @@ A widget renders inside a host, and the host inside an application. Some of what
 
 ## Contract
 
-`WidgetHost` is a bag of optional capabilities. An absent capability degrades to the host-agnostic behavior, so consumers guard each one and never assume it exists.
+`WidgetHost` is a bag of optional capabilities. An absent capability degrades to the host-agnostic behavior. `HostLink` handles that fallback for link materialization; consumers reading a capability directly still guard it.
 
 The provider merges its value over the inherited one, so an application can mount a base host once and layer capabilities per subtree. Reading without any provider yields `{}`.
 
@@ -30,11 +30,21 @@ links: {
 }
 ```
 
-`match` answers one question: does this href target one of the application's own routes? On a hit it returns the in-app route, `'/sales?by=day'`, path and query as the router takes them, and the consumer mounts `Link` with it, so the navigation is client-side. On `null` the consumer falls back to a plain anchor.
+`match` answers one question: does this href target one of the application's own routes? On a hit it returns the in-app route, `'/sales?by=day'`, path and query as the router takes them. `HostLink` mounts `Link` with that path, so the navigation is client-side; on `null` it falls back to a plain anchor.
 
 The action declaration does not change either way. A widget declares the portable URL of its target, `admin.php?page=analytics&p=%2Fsales%3Fby%3Dday`, the route encoded inside `p` with its query; in the owning application that materializes as a router link, everywhere else as a plain anchor that full-loads to the same place. Recognition is the application's: reachability depends on the routes it registered, which change per application and over time.
 
-Only plain navigations are matched. `download` and `openInNewTab` keep the plain anchor: both mean a new document, so a router link buys nothing.
+The caller decides which navigations to offer to `HostLink`. The dashboard chrome keeps `download` and `openInNewTab` actions as plain anchors: both mean a new document, so a router link buys nothing. `match` remains available to consumers that need to know whether the host owns a target before they render it.
+
+## Consuming it
+
+`HostLink` takes a required `href` plus native anchor props and forwards its ref to whichever anchor it renders. It has no UI dependency. Compose it through the render prop of the link primitive that owns the presentation:
+
+```tsx
+<Link render={ <HostLink href={ href } /> }>View report</Link>
+```
+
+Without a provider, or when `match` returns `null`, the same component renders `<a href={ href }>`. Consumers do not branch on the capability for ordinary links.
 
 ## Providing it
 
@@ -52,16 +62,18 @@ const host: WidgetHost = {
 
 ### `Link` and its ref
 
-Consumers compose `Link` into menu items and tooltip triggers through render props, and both reach the anchor through the ref. A link that drops it satisfies the type and fails in use: keyboard navigation skips the menu item, and the tooltip loses its anchor. Under React 18 that means `forwardRef`; under React 19, where `ref` arrives as a prop, spreading the props onto the anchor is enough.
+Consumers compose `HostLink` into menu items and tooltip triggers through render props, and both reach the resulting anchor through the ref. The host's `Link` must pass that ref to its anchor: a link that drops it satisfies the type and fails in use, because keyboard navigation skips the menu item and the tooltip loses its anchor. Under React 18 that means `forwardRef`; under React 19, where `ref` arrives as a prop, spreading the props onto the anchor is enough.
 
-One test pins it for a host's own link:
+Tests pin the ref through both the matched host link and the plain-anchor fallback:
 
 ```tsx
 const ref = createRef< HTMLAnchorElement >();
 render(
-	<RouteLink ref={ ref } path="/reports">
-		Reports
-	</RouteLink>
+	<WidgetHostProvider value={ host }>
+		<HostLink ref={ ref } href="admin.php?page=dashboard&p=/reports">
+			Reports
+		</HostLink>
+	</WidgetHostProvider>
 );
 
 expect( ref.current ).toBe( screen.getByRole( 'link', { name: 'Reports' } ) );
