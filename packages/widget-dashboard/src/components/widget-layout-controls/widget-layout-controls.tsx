@@ -46,7 +46,8 @@ export function WidgetLayoutControls( {
 	canRemove = true,
 	canResize = true,
 }: WidgetLayoutControlsProps ): React.ReactNode {
-	const { layout, onLayoutChange } = useDashboardInternalContext();
+	const { layout, onLayoutChange, widthOptionsResolution } =
+		useDashboardInternalContext();
 	const width = widget.placement?.width;
 
 	const updateWidth = ( nextWidth: GridTilePlacement[ 'width' ] ) => {
@@ -76,9 +77,16 @@ export function WidgetLayoutControls( {
 		);
 	};
 
+	// An invalid `widthOptions` list fails closed: no width menu offered
+	// rather than falling back to unrestricted `fill`/`full` choices.
+	const showWidthMenu = canResize && widthOptionsResolution.valid;
+	const widthOptions = widthOptionsResolution.valid
+		? widthOptionsResolution.options
+		: undefined;
+
 	return (
 		<>
-			{ canResize && (
+			{ showWidthMenu && (
 				<Menu>
 					<Menu.TriggerButton
 						render={
@@ -95,22 +103,44 @@ export function WidgetLayoutControls( {
 					<Menu.Popover>
 						<Menu.Group>
 							<Menu.GroupLabel>{ __( 'Width' ) }</Menu.GroupLabel>
-							<Menu.Item
-								disabled={ width === 'fill' }
-								onClick={ () => onNamedWidthChange( 'fill' ) }
-							>
-								<Menu.ItemLabel>
-									{ __( 'Use available width' ) }
-								</Menu.ItemLabel>
-							</Menu.Item>
-							<Menu.Item
-								disabled={ width === 'full' }
-								onClick={ () => onNamedWidthChange( 'full' ) }
-							>
-								<Menu.ItemLabel>
-									{ __( 'Make full width' ) }
-								</Menu.ItemLabel>
-							</Menu.Item>
+							{ widthOptions ? (
+								widthOptions.map( ( option ) => (
+									<Menu.Item
+										key={ String( option.value ) }
+										disabled={ width === option.value }
+										onClick={ () =>
+											updateWidth( option.value )
+										}
+									>
+										<Menu.ItemLabel>
+											{ option.label }
+										</Menu.ItemLabel>
+									</Menu.Item>
+								) )
+							) : (
+								<>
+									<Menu.Item
+										disabled={ width === 'fill' }
+										onClick={ () =>
+											onNamedWidthChange( 'fill' )
+										}
+									>
+										<Menu.ItemLabel>
+											{ __( 'Use available width' ) }
+										</Menu.ItemLabel>
+									</Menu.Item>
+									<Menu.Item
+										disabled={ width === 'full' }
+										onClick={ () =>
+											onNamedWidthChange( 'full' )
+										}
+									>
+										<Menu.ItemLabel>
+											{ __( 'Make full width' ) }
+										</Menu.ItemLabel>
+									</Menu.Item>
+								</>
+							) }
 						</Menu.Group>
 					</Menu.Popover>
 				</Menu>

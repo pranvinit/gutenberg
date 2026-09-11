@@ -145,6 +145,17 @@ interface BaseWidgetGridSettings {
 }
 
 /**
+ * One supported width choice for the 2D grid model. `value` is a
+ * numeric column span, `'full'` (all columns), or `'fill'` (remaining
+ * columns in the current row); `label` is host-translated copy shown
+ * in the width menu.
+ */
+export interface WidgetWidthOption {
+	value: number | 'full' | 'fill';
+	label: string;
+}
+
+/**
  * 2D packed grid settings. Items declare explicit width and height
  * spans; rows use a uniform track height via `rowHeight`.
  */
@@ -156,6 +167,17 @@ export interface WidgetGridLayoutSettings extends BaseWidgetGridSettings {
 	 * tile in a row fills the row vertically.
 	 */
 	rowHeight?: number;
+
+	/**
+	 * Restricts the widths a widget may take: the menu offers only
+	 * these choices, insertion defaults to the first one, and resizing
+	 * snaps to them. Must be nonempty with unique `value`s, positive
+	 * integers for numeric values, and nonempty `label`s — an invalid
+	 * list fails closed (blocks width changes and insertion) rather
+	 * than falling back to unrestricted widths. Omit to preserve the
+	 * existing `fill`/`full` menu and unrestricted resizing.
+	 */
+	widthOptions?: readonly WidgetWidthOption[];
 }
 
 /**

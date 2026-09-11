@@ -14,21 +14,36 @@ import { WidgetPicker } from '../widget-picker';
  * layout and closes the dialog.
  */
 export function WidgetInserter() {
-	const { layout, onLayoutChange } = useDashboardInternalContext();
+	const { layout, onLayoutChange, gridSettings, widthOptionsResolution } =
+		useDashboardInternalContext();
 	const { inserterOpen, setInserterOpen } = useDashboardUIContext();
 
 	const insertWidgets = useCallback(
 		( widgetTypes: WidgetType[] ) => {
 			if ( widgetTypes.length > 0 ) {
+				// The first configured choice is the insertion default;
+				// an invalid list has no default and the staging layer
+				// rejects the resulting placement instead.
+				const defaultWidth =
+					gridSettings.model !== 'masonry' &&
+					widthOptionsResolution.valid
+						? widthOptionsResolution.options?.[ 0 ]?.value
+						: undefined;
 				const newWidgets = widgetTypes.map( ( widgetType ) =>
-					createDashboardWidget( widgetType )
+					createDashboardWidget( widgetType, undefined, defaultWidth )
 				);
 				onLayoutChange( [ ...layout, ...newWidgets ] );
 			}
 
 			setInserterOpen( false );
 		},
-		[ layout, onLayoutChange, setInserterOpen ]
+		[
+			layout,
+			onLayoutChange,
+			setInserterOpen,
+			gridSettings,
+			widthOptionsResolution,
+		]
 	);
 
 	if ( ! inserterOpen ) {

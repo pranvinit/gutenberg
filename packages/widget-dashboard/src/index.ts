@@ -6,6 +6,7 @@ export type {
 	DashboardOperationRequest,
 	DashboardWidget,
 	WidgetGridSettings,
+	WidgetWidthOption,
 } from './types';
 export { WIDGET_DASHBOARD_COLUMN_COUNT } from './types';
 export { DEFAULT_GRID } from './utils/default-grid';

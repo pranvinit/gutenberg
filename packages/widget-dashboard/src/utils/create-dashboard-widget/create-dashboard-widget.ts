@@ -17,16 +17,24 @@ const DEFAULT_PLACEMENT: GridTilePlacement = {
  *
  * @param widgetType        Source widget type.
  * @param initialAttributes Initial attributes; default to the type's example.
+ * @param defaultWidth      Width to place the instance at, overriding the
+ *                          built-in default of `1`. Pass the host's
+ *                          configured insertion default (the first entry
+ *                          of `gridSettings.widthOptions`) when set.
  */
 export function createDashboardWidget< T >(
 	widgetType: WidgetType,
-	initialAttributes?: T
+	initialAttributes?: T,
+	defaultWidth?: GridTilePlacement[ 'width' ]
 ): DashboardWidget< T > {
 	return {
 		uuid: uuid(),
 		type: widgetType.name,
 		attributes:
 			initialAttributes ?? ( widgetType.example?.attributes as T ),
-		placement: DEFAULT_PLACEMENT,
+		placement:
+			defaultWidth === undefined
+				? DEFAULT_PLACEMENT
+				: { ...DEFAULT_PLACEMENT, width: defaultWidth },
 	};
 }

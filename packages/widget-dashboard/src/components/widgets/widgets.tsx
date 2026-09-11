@@ -130,6 +130,7 @@ export const Widgets = forwardRef< HTMLDivElement, WidgetsProps >(
 			gridSettings,
 			widgetTypes,
 			canPerform,
+			widthOptionsResolution,
 		} = useDashboardInternalContext();
 		const { containerRef, columnCount } =
 			useDashboardContainerColumnCount( ref );
@@ -159,6 +160,34 @@ export const Widgets = forwardRef< HTMLDivElement, WidgetsProps >(
 					: toGridLayout( layout, permissionsFor ),
 			[ layout, isMasonry, permissionsFor ]
 		);
+
+		// Every tile shares the dashboard-wide `widthOptions`: `'fill'` is a
+		// menu choice, not a resize target, so it is excluded from the
+		// snap set. An invalid list fails closed — every tile freezes its
+		// horizontal span while height resizing stays available.
+		const itemResizeWidths = useMemo( () => {
+			if ( isMasonry ) {
+				return undefined;
+			}
+			if (
+				widthOptionsResolution.valid &&
+				! widthOptionsResolution.options
+			) {
+				return undefined;
+			}
+			const allowedWidths: ( number | 'full' )[] =
+				widthOptionsResolution.valid && widthOptionsResolution.options
+					? widthOptionsResolution.options
+							.map( ( option ) => option.value )
+							.filter(
+								( value ): value is number | 'full' =>
+									value !== 'fill'
+							)
+					: [];
+			return Object.fromEntries(
+				layout.map( ( widget ) => [ widget.uuid, allowedWidths ] )
+			);
+		}, [ isMasonry, widthOptionsResolution, layout ] );
 
 		const handleGridChange = useCallback(
 			( newGridLayout: DashboardGridLayoutItem[] ) => {
@@ -279,6 +308,7 @@ export const Widgets = forwardRef< HTMLDivElement, WidgetsProps >(
 				layout={ gridLayout as DashboardGridLayoutItem[] }
 				columns={ columnCount }
 				rowHeight={ gridSettings.rowHeight }
+				itemResizeWidths={ itemResizeWidths }
 				onChangeLayout={ handleGridChange }
 				{ ...sharedRenderProps }
 			>
