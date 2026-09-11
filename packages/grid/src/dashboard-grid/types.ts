@@ -315,4 +315,15 @@ export interface DashboardGridProps
 	 * respect a maximum.
 	 */
 	itemLimits?: Record< string, GridItemLimits >;
+
+	/**
+	 * Per-item discrete horizontal resize targets, keyed by layout item
+	 * key, in column spans (`'full'` for all columns). When an entry is
+	 * present, the resize gesture snaps the tile's horizontal span to
+	 * the nearest listed value instead of any span within `itemLimits`;
+	 * an empty entry freezes horizontal tracking and commits entirely
+	 * while height resizing continues normally. Missing entries keep
+	 * the existing continuous snapping.
+	 */
+	itemResizeWidths?: Record< string, readonly ( number | 'full' )[] >;
 }

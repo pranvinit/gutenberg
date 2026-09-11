@@ -9,6 +9,7 @@
     other items reorder; a non-resizable item keeps its size
     ([#81967](https://github.com/WordPress/gutenberg/pull/81967)).
 -   `DashboardGrid` and `DashboardLanes` accept `itemLimits`: per-item minimum and maximum tile sizes in pixels (`GridItemLimits`; width-only `GridItemWidthLimits` on lanes), enforced on rendered spans and resize gestures without being written into the layout ([#81899](https://github.com/WordPress/gutenberg/pull/81899)).
+-   `DashboardGrid` accepts `itemResizeWidths`: per-item discrete horizontal resize targets (column spans or `'full'`), keyed by layout item key. When set, the resize gesture snaps to the nearest listed value instead of any span within `itemLimits`; an empty list freezes the horizontal span while height resizing continues ([#82523](https://github.com/WordPress/gutenberg/issues/82523)).
 
 ### Internal
 

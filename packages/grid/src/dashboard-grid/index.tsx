@@ -26,7 +26,11 @@ import {
 import { GridItem } from './grid-item';
 import { arrayMoveWithPinned } from '../shared/array-move-with-pinned';
 import { GridOverlay } from '../shared/grid-overlay';
-import { clampSpan, gridSpanToPixelSize } from '../shared/resize-snap';
+import {
+	clampSpan,
+	gridSpanToPixelSize,
+	snapToAllowedSpans,
+} from '../shared/resize-snap';
 import { useResizePixelLimits, useSpanBounds } from '../shared/use-span-bounds';
 import layoutAnimationStyles from '../shared/layout-shift-animation.module.css';
 import { ItemExitOverlay } from '../shared/item-exit-overlay';
@@ -109,6 +113,7 @@ export const DashboardGrid = forwardRef< HTMLDivElement, DashboardGridProps >(
 			rowHeight = 'auto',
 			minColumnWidth,
 			itemLimits,
+			itemResizeWidths,
 			editMode = false,
 			onChangeLayout,
 			onPreviewLayout,
@@ -552,11 +557,27 @@ export const DashboardGrid = forwardRef< HTMLDivElement, DashboardGridProps >(
 				};
 			}
 			const baseline = resizeBaselineRef.current;
-			const newWidth = clampSpan(
-				baseline.width + relativeDelta.width,
-				bounds?.minWidth ?? 1,
-				bounds?.maxWidth ?? effectiveColumns
-			);
+			const allowedWidths = itemResizeWidths?.[ id ];
+			let newWidth: number;
+			if ( allowedWidths ) {
+				// Discrete targets replace continuous clamping entirely;
+				// an empty list freezes the horizontal span at baseline
+				// while height resizing keeps tracking normally.
+				const numericAllowed = allowedWidths.map( ( width ) =>
+					width === 'full' ? effectiveColumns : width
+				);
+				newWidth = snapToAllowedSpans(
+					baseline.width + relativeDelta.width,
+					numericAllowed,
+					baseline.width
+				);
+			} else {
+				newWidth = clampSpan(
+					baseline.width + relativeDelta.width,
+					bounds?.minWidth ?? 1,
+					bounds?.maxWidth ?? effectiveColumns
+				);
+			}
 			const newHeight = clampSpan(
 				baseline.height + relativeDelta.height,
 				bounds?.minHeight ?? 1,

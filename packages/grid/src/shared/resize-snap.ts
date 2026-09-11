@@ -168,6 +168,42 @@ export function clampSpan( span: number, min: number, max: number ): number {
 }
 
 /**
+ * Snaps a continuous target span to the nearest value in a discrete
+ * set of allowed spans. Ties prefer `preferred` (typically the span the
+ * resize gesture started from) when it is one of the tied candidates,
+ * otherwise the earliest candidate in `allowed` order. Returns
+ * `preferred` unchanged when `allowed` is empty — callers freeze the
+ * span in that case rather than snapping it.
+ *
+ * @param target    Unsnapped span in tracks.
+ * @param allowed   Discrete spans the tile may resize to, in tracks.
+ * @param preferred Span to prefer when multiple candidates tie.
+ */
+export function snapToAllowedSpans(
+	target: number,
+	allowed: readonly number[],
+	preferred: number
+): number {
+	if ( allowed.length === 0 ) {
+		return preferred;
+	}
+	let best = allowed[ 0 ];
+	let bestDistance = Math.abs( allowed[ 0 ] - target );
+	for ( let i = 1; i < allowed.length; i++ ) {
+		const candidate = allowed[ i ];
+		const distance = Math.abs( candidate - target );
+		if (
+			distance < bestDistance ||
+			( distance === bestDistance && candidate === preferred )
+		) {
+			best = candidate;
+			bestDistance = distance;
+		}
+	}
+	return best;
+}
+
+/**
  * Pixel limits for the resize gesture, derived from span bounds.
  * Heights are `null` when rows are content-sized or the height
  * bound is open.

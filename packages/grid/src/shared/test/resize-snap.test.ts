@@ -3,6 +3,7 @@ import {
 	clampSpan,
 	gridSpanToPixelSize,
 	pixelLimitsToSpanBounds,
+	snapToAllowedSpans,
 } from '../resize-snap';
 
 describe( 'gridSpanToPixelSize', () => {
@@ -199,5 +200,21 @@ describe( 'clampSpan', () => {
 
 	it( 'treats an infinite maximum as open', () => {
 		expect( clampSpan( 40, 1, Infinity ) ).toBe( 40 );
+	} );
+} );
+
+describe( 'snapToAllowedSpans', () => {
+	it( 'snaps to the closest allowed span', () => {
+		expect( snapToAllowedSpans( 3, [ 1, 4 ], 1 ) ).toBe( 4 );
+		expect( snapToAllowedSpans( 2, [ 1, 4 ], 1 ) ).toBe( 1 );
+	} );
+
+	it( 'prefers the preferred span on a tie', () => {
+		expect( snapToAllowedSpans( 2.5, [ 1, 4 ], 4 ) ).toBe( 4 );
+		expect( snapToAllowedSpans( 2.5, [ 1, 4 ], 1 ) ).toBe( 1 );
+	} );
+
+	it( 'returns the preferred span unchanged when no spans are allowed', () => {
+		expect( snapToAllowedSpans( 3, [], 2 ) ).toBe( 2 );
 	} );
 } );
