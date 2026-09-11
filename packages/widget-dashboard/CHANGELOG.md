@@ -17,6 +17,18 @@
 -   The Add widget button and command show only while the policy lets some
     registered type be inserted
     ([#81967](https://github.com/WordPress/gutenberg/pull/81967)).
+-   `gridSettings.widthOptions`: an optional, host-supplied list of widths
+    (`{ value: number | 'full' | 'fill'; label: string }`) that restricts
+    the 2D grid model to those choices. The width menu offers only the
+    configured choices, insertion defaults to the first one, and resizing
+    snaps to them. Enforced at the staging boundary: a staged width outside
+    the list is restored to the instance's committed width, and a new
+    insertion with no committed width to restore is rejected. An invalid
+    list (empty, duplicate values, non-positive-integer numeric values, or
+    empty labels) fails closed — no width menu, and no default for new
+    insertions — instead of falling back to unrestricted widths. Omit to
+    keep the existing unrestricted `fill`/`full` menu
+    ([#82523](https://github.com/WordPress/gutenberg/issues/82523)).
 
 ### Internal
 

@@ -263,6 +263,27 @@ The exported kit for handling them:
 />
 ```
 
+### Width choices
+
+The `grid` model accepts `widthOptions`, an optional list restricting the widths a widget instance may take:
+
+```tsx
+<WidgetDashboard
+	gridSettings={ {
+		model: 'grid',
+		widthOptions: [
+			{ value: 1, label: __( 'Half width' ) },
+			{ value: 'full', label: __( 'Full width' ) },
+		],
+	} }
+	{ ...otherProps }
+/>
+```
+
+Each `value` is a numeric column span, `'full'` (all columns), or `'fill'` (remaining columns in the row); `label` is host-translated copy shown in the width menu. When set, the width menu offers only these choices, a new insertion defaults to the first one, and resizing snaps to them (`'fill'` is a menu choice, not a resize target). Omit `widthOptions` to keep the existing unrestricted `fill`/`full` menu.
+
+`widthOptions` must be nonempty with unique values, positive integers for numeric values, and nonempty labels. An invalid list fails closed — no width menu, and no default for new insertions — rather than falling back to unrestricted widths. A staged width that falls outside the list is restored to the instance's committed width; a new insertion with no committed width to restore is rejected. Existing widths outside the list that predate the restriction remain visible until the user changes them; the dashboard does not migrate stored layouts. `masonry` is unaffected — `DashboardLanes` stores numeric widths only.
+
 ## Tile spacing
 
 The tile chrome is a `Card` at the Card's default density. Hosts can tighten or relax it by setting two custom properties at `:root`:
