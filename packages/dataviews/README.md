@@ -254,6 +254,7 @@ Properties:
 | -------------- | ------- | ------------- | ------ | ------------ | ------ | ---------- |
 | `density`      | ✓       | ✓             | ✓      | ✓            | ✓      | ✓          |
 | `enableMoving` | ✓       | ✓             |        |              |        |            |
+| `freezeUpTo`   | ✓       |               |        |              |        |            |
 | `styles`       | ✓       | ✓             |        |              |        |            |
 | `badgeFields`  |         |               | ✓      | ✓            |        |            |
 | `previewSize`  |         |               | ✓      | ✓            |        |            |
@@ -264,6 +265,7 @@ Properties:
 
 -   `density`: one of `comfortable`, `balanced`, or `compact`. Configures the size and spacing of the layout.
 -   `enableMoving`: whether the table columns should display moving controls.
+-   `freezeUpTo` (`table` only): the id of the last column to keep visible while the table scrolls horizontally. Every column before it is frozen as well, including the selection checkbox column when present. The option is ignored when the named field is not rendered, and frozen columns scroll normally below 480px of available width.
 -   `styles`: additional `width`, `maxWidth`, `minWidth`, `align` styles for the columns listed in `fields`, keyed by field id. The `align` property accepts `'start'`, `'center'`, or `'end'`. Neither layout applies these styles to the primary column (the one that renders `titleField`, `mediaField`, and `descriptionField`). In the `table` layout, that column is the flexible one: the table sizes every other column to fit its content and gives the primary column whatever width is left, so a `width` or `maxWidth` set on it would not be honored by the browser's table layout, and long titles are truncated instead. When the `table` view has no primary column, the last column in `fields` takes the leftover width in the same way. The `pickerTable` layout lets the browser share the width among all columns, but it does not apply the styles to the primary column either.
 -   `aspectRatio` (`table` only): one of the preset ratios `'1/1'`, `'4/3'`, `'3/4'`, `'3/2'`, `'2/3'`, `'16/9'`, or `'9/16'`, applied to the primary column's media preview. Defaults to `'1/1'`.
 
