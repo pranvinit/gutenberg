@@ -403,6 +403,101 @@ describe( 'DataViews component', () => {
 			}
 		} );
 
+		it( 'should not freeze columns by default', () => {
+			render( <DataViewWrapper /> );
+
+			expect(
+				document.querySelector(
+					'.dataviews-view-table__column--frozen'
+				)
+			).not.toBeInTheDocument();
+		} );
+
+		it( 'should freeze the primary column named by freezeUpTo', () => {
+			render(
+				<DataViewWrapper
+					view={ {
+						...DEFAULT_VIEW,
+						fields: [ 'order', 'author' ],
+						titleField: 'title',
+						layout: { freezeUpTo: 'title' },
+					} }
+				/>
+			);
+
+			const titleHeader = screen
+				.getByRole( 'button', { name: 'Title' } )
+				.closest( 'th' );
+			expect( titleHeader ).toHaveClass(
+				'dataviews-view-table__column--frozen'
+			);
+		} );
+
+		it( 'should freeze the checkbox and primary columns when bulk actions are available', () => {
+			render(
+				<DataViewWrapper
+					view={ {
+						...DEFAULT_VIEW,
+						fields: [ 'order', 'author' ],
+						titleField: 'title',
+						layout: { freezeUpTo: 'title' },
+					} }
+					actions={ actions }
+				/>
+			);
+
+			expect(
+				screen
+					.getAllByRole( 'columnheader' )
+					.filter( ( header ) =>
+						header.classList.contains(
+							'dataviews-view-table__column--frozen'
+						)
+					)
+			).toHaveLength( 2 );
+		} );
+
+		it( 'should freeze through the named field column', () => {
+			render(
+				<DataViewWrapper
+					view={ {
+						...DEFAULT_VIEW,
+						fields: [ 'order', 'author' ],
+						titleField: 'title',
+						layout: { freezeUpTo: 'order' },
+					} }
+				/>
+			);
+
+			expect(
+				screen
+					.getAllByRole( 'columnheader' )
+					.filter( ( header ) =>
+						header.classList.contains(
+							'dataviews-view-table__column--frozen'
+						)
+					)
+			).toHaveLength( 2 );
+		} );
+
+		it( 'should not freeze columns when freezeUpTo names a field that is not rendered', () => {
+			render(
+				<DataViewWrapper
+					view={ {
+						...DEFAULT_VIEW,
+						fields: [ 'order' ],
+						layout: { freezeUpTo: 'author' },
+					} }
+				/>
+			);
+
+			expect(
+				document.querySelector(
+					'.dataviews-view-table__column--frozen'
+				)
+			).not.toBeInTheDocument();
+		} );
+
 		it( 'should render actions column if actions are supported and passed in', () => {
 			render( <DataViewWrapper actions={ actions } /> );
 			expect( screen.getByText( 'Actions' ) ).toBeInTheDocument();
