@@ -14,8 +14,9 @@ const isScrolledToEnd = ( element: Element ) => {
 /**
  * A hook to track the scroll state of a container element.
  *
- * Returns whether the container has been scrolled vertically (for sticky header styling)
- * and whether it has reached the horizontal scroll end (for sticky actions column styling).
+ * Returns whether the container has been scrolled vertically (for sticky header styling),
+ * away from the horizontal start (for frozen column styling), and to the
+ * horizontal end (for sticky actions column styling).
  *
  * The current way receives "refs" as arguments, but it lacks a mechanism to detect when a ref has changed.
  * As a result, when the "ref" is updated and attached to a new div, the computation should trigger again.
@@ -26,7 +27,7 @@ const isScrolledToEnd = ( element: Element ) => {
  * @param {Object}                                  params                           The parameters for the hook.
  * @param {MutableRefObject<HTMLDivElement | null>} params.scrollContainerRef        The ref to the scroll container element.
  * @param {boolean}                                 [params.enabledHorizontal=false] Whether to track horizontal scroll end.
- * @return {{ isHorizontalScrollEnd: boolean, isVerticallyScrolled: boolean }} The scroll state.
+ * @return {{ isHorizontallyScrolled: boolean, isHorizontalScrollEnd: boolean, isVerticallyScrolled: boolean }} The scroll state.
  */
 export function useScrollState( {
 	scrollContainerRef,
@@ -34,7 +35,13 @@ export function useScrollState( {
 }: {
 	scrollContainerRef: React.MutableRefObject< HTMLDivElement | null >;
 	enabledHorizontal?: boolean;
-} ): { isHorizontalScrollEnd: boolean; isVerticallyScrolled: boolean } {
+} ): {
+	isHorizontallyScrolled: boolean;
+	isHorizontalScrollEnd: boolean;
+	isVerticallyScrolled: boolean;
+} {
+	const [ isHorizontallyScrolled, setIsHorizontallyScrolled ] =
+		useState( false );
 	const [ isHorizontalScrollEnd, setIsHorizontalScrollEnd ] =
 		useState( false );
 	const [ isVerticallyScrolled, setIsVerticallyScrolled ] = useState( false );
@@ -46,6 +53,9 @@ export function useScrollState( {
 		}
 
 		if ( enabledHorizontal ) {
+			setIsHorizontallyScrolled(
+				Math.abs( scrollContainer.scrollLeft ) > 1
+			);
 			setIsHorizontalScrollEnd( isScrolledToEnd( scrollContainer ) );
 		}
 
@@ -68,5 +78,9 @@ export function useScrollState( {
 		};
 	}, [ scrollContainerRef, enabledHorizontal, handleScroll ] );
 
-	return { isHorizontalScrollEnd, isVerticallyScrolled };
+	return {
+		isHorizontallyScrolled,
+		isHorizontalScrollEnd,
+		isVerticallyScrolled,
+	};
 }

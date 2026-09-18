@@ -462,6 +462,13 @@ export interface ViewTable extends ViewBase {
 		enableMoving?: boolean;
 
 		/**
+		 * The id of the last column to freeze at the start of the table.
+		 * Columns before it are frozen as well. Ignored when the field is not
+		 * rendered.
+		 */
+		freezeUpTo?: string;
+
+		/**
 		 * A fixed aspect ratio for the primary column's media preview, one of
 		 * the preset ratios. Applied uniformly to every row. Defaults to
 		 * `'1/1'`.

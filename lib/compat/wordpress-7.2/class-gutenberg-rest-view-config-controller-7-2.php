@@ -47,7 +47,8 @@ class Gutenberg_REST_View_Config_Controller_7_2 extends Gutenberg_REST_View_Conf
 	protected function get_table_layout_schema() {
 		$schema = parent::get_table_layout_schema();
 
-		$schema['properties']['styles']['description'] = __( 'Column styles keyed by field id, for the columns listed in the view fields. The primary column (title, media, and description fields) ignores these styles; in the table layout it takes the width left over by the other columns, or the last column does when there is no primary column.', 'gutenberg' );
+		$schema['properties']['styles']['description']     = __( 'Column styles keyed by field id, for the columns listed in the view fields. The primary column (title, media, and description fields) ignores these styles; in the table layout it takes the width left over by the other columns, or the last column does when there is no primary column.', 'gutenberg' );
+		$schema['properties']['freezeUpTo']['description'] = __( 'The id of the last column to freeze at the start of a table view.', 'gutenberg' );
 
 		return $schema;
 	}

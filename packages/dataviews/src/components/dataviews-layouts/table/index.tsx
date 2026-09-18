@@ -32,10 +32,37 @@ import ColumnHeaderMenu from './column-header-menu';
 import ColumnPrimary from './column-primary';
 import { useScrollState } from './use-scroll-state';
 import getDataByGroup from '../utils/get-data-by-group';
+import getFrozenColumnCount from '../utils/get-frozen-column-count';
 import getTableColumns from '../utils/get-table-columns';
 import useSelectionProps from '../utils/use-selection-props';
 import { PropertiesSection } from '../../dataviews-view-config/properties-section';
 import { useDelayedLoading } from '../../../hooks/use-delayed-loading';
+import useFrozenColumnOffsets from './use-frozen-column-offsets';
+
+const FROZEN_COLUMN_CLASS = 'dataviews-view-table__column--frozen';
+const FROZEN_COLUMN_STUCK_CLASS = 'dataviews-view-table__column--frozen-stuck';
+
+function getFrozenColumnProps(
+	columnIndex: number,
+	frozenColumnCount: number,
+	isHorizontallyScrolled: boolean
+) {
+	const isFrozen = columnIndex < frozenColumnCount;
+	return {
+		className: clsx( {
+			[ FROZEN_COLUMN_CLASS ]: isFrozen,
+			[ FROZEN_COLUMN_STUCK_CLASS ]:
+				isFrozen &&
+				columnIndex === frozenColumnCount - 1 &&
+				isHorizontallyScrolled,
+		} ),
+		style: isFrozen
+			? ( {
+					'--wp-dataviews-frozen-column-offset': `var(--wp-dataviews-frozen-column-offset-${ columnIndex }, 0px)`,
+				} as CSSProperties )
+			: undefined,
+	};
+}
 
 function getEffectiveAlign(
 	explicitAlign: 'start' | 'center' | 'end' | undefined,
@@ -82,6 +109,8 @@ interface TableRowProps< Item > {
 		} & ComponentProps< 'a' >
 	) => ReactElement;
 	isActionsColumnSticky?: boolean;
+	frozenColumnCount: number;
+	isHorizontallyScrolled: boolean;
 	posinset?: number;
 }
 
@@ -130,6 +159,8 @@ function TableRow< Item >( {
 	onMouseDown,
 	onClickCapture,
 	isActionsColumnSticky,
+	frozenColumnCount,
+	isHorizontallyScrolled,
 	posinset,
 }: TableRowProps< Item > ) {
 	const { paginationInfo } = useContext( DataViewsContext );
@@ -146,6 +177,9 @@ function TableRow< Item >( {
 		( titleField && showTitle ) ||
 		( mediaField && showMedia ) ||
 		( descriptionField && showDescription );
+	const primaryColumnIndex = hasBulkActions ? 1 : 0;
+	const fieldColumnStartIndex =
+		( hasBulkActions ? 1 : 0 ) + ( hasPrimaryColumn ? 1 : 0 );
 
 	return (
 		<tr
@@ -177,7 +211,23 @@ function TableRow< Item >( {
 			} }
 		>
 			{ hasBulkActions && (
-				<td className="dataviews-view-table__checkbox-column">
+				<td
+					className={ clsx(
+						'dataviews-view-table__checkbox-column',
+						getFrozenColumnProps(
+							0,
+							frozenColumnCount,
+							isHorizontallyScrolled
+						).className
+					) }
+					style={
+						getFrozenColumnProps(
+							0,
+							frozenColumnCount,
+							isHorizontallyScrolled
+						).style
+					}
+				>
 					<div className="dataviews-view-table__cell-content-wrapper">
 						<DataViewsSelectionCheckbox
 							item={ item }
@@ -191,7 +241,13 @@ function TableRow< Item >( {
 				</td>
 			) }
 			{ hasPrimaryColumn && (
-				<td>
+				<td
+					{ ...getFrozenColumnProps(
+						primaryColumnIndex,
+						frozenColumnCount,
+						isHorizontallyScrolled
+					) }
+				>
 					<ColumnPrimary
 						item={ item }
 						level={ level }
@@ -207,7 +263,7 @@ function TableRow< Item >( {
 					/>
 				</td>
 			) }
-			{ columns.map( ( column: string ) => {
+			{ columns.map( ( column: string, index ) => {
 				// Explicit picks the supported styles.
 				const { width, maxWidth, minWidth, align } =
 					view.layout?.styles?.[ column ] ?? {};
@@ -218,10 +274,22 @@ function TableRow< Item >( {
 					<td
 						key={ column }
 						style={ {
+							...getFrozenColumnProps(
+								fieldColumnStartIndex + index,
+								frozenColumnCount,
+								isHorizontallyScrolled
+							).style,
 							width,
 							maxWidth,
 							minWidth,
 						} }
+						className={
+							getFrozenColumnProps(
+								fieldColumnStartIndex + index,
+								frozenColumnCount,
+								isHorizontallyScrolled
+							).className
+						}
 					>
 						<TableColumnField
 							fields={ fields }
@@ -273,6 +341,7 @@ function ViewTable< Item >( {
 	empty,
 }: ViewTableProps< Item > ) {
 	const { containerRef } = useContext( DataViewsContext );
+	const tableRef = useRef< HTMLTableElement >( null );
 	const isDelayedLoading = useDelayedLoading( isLoading );
 	const groupField = view.groupBy?.field
 		? fields.find( ( f ) => f.id === view.groupBy?.field )
@@ -311,12 +380,44 @@ function ViewTable< Item >( {
 
 	const tableNoticeId = useId();
 
-	const { isHorizontalScrollEnd, isVerticallyScrolled } = useScrollState( {
-		scrollContainerRef: containerRef,
-		enabledHorizontal: !! actions?.length,
-	} );
-
 	const hasBulkActions = useSomeItemHasAPossibleBulkAction( actions, data );
+	const titleField = fields.find( ( field ) => field.id === view.titleField );
+	const mediaField = fields.find( ( field ) => field.id === view.mediaField );
+	const descriptionField = fields.find(
+		( field ) => field.id === view.descriptionField
+	);
+	const { showTitle = true, showMedia = true, showDescription = true } = view;
+	const hasPrimaryColumn = !! (
+		( titleField && showTitle ) ||
+		( mediaField && showMedia ) ||
+		( descriptionField && showDescription )
+	);
+	const columns = getTableColumns( view, fields );
+	const frozenColumnCount = getFrozenColumnCount(
+		view,
+		fields,
+		hasBulkActions,
+		hasPrimaryColumn
+	);
+	const frozenColumnMeasurementKey = [
+		view.layout?.density ?? '',
+		hasBulkActions ? 'bulk' : '',
+		hasPrimaryColumn ? 'primary' : '',
+		...columns,
+	].join( ':' );
+	useFrozenColumnOffsets(
+		tableRef,
+		frozenColumnCount,
+		frozenColumnMeasurementKey
+	);
+	const {
+		isHorizontallyScrolled,
+		isHorizontalScrollEnd,
+		isVerticallyScrolled,
+	} = useScrollState( {
+		scrollContainerRef: containerRef,
+		enabledHorizontal: !! actions?.length || frozenColumnCount > 0,
+	} );
 
 	if ( nextHeaderMenuToFocus ) {
 		// If we need to force focus, we short-circuit rendering here
@@ -359,18 +460,6 @@ function ViewTable< Item >( {
 
 	const hasData = !! data?.length;
 
-	const titleField = fields.find( ( field ) => field.id === view.titleField );
-	const mediaField = fields.find( ( field ) => field.id === view.mediaField );
-	const descriptionField = fields.find(
-		( field ) => field.id === view.descriptionField
-	);
-
-	const { showTitle = true, showMedia = true, showDescription = true } = view;
-	const hasPrimaryColumn =
-		( titleField && showTitle ) ||
-		( mediaField && showMedia ) ||
-		( descriptionField && showDescription );
-	const columns = getTableColumns( view, fields );
 	const headerMenuRef =
 		( column: string, index: number ) => ( node: HTMLButtonElement ) => {
 			if ( node ) {
@@ -415,6 +504,7 @@ function ViewTable< Item >( {
 	return (
 		<>
 			<table
+				ref={ tableRef }
 				className={ clsx( 'dataviews-view-table', className, {
 					[ `has-${ view.layout?.density }-density` ]:
 						view.layout?.density &&
@@ -475,7 +565,21 @@ function ViewTable< Item >( {
 					<tr className="dataviews-view-table__row">
 						{ hasBulkActions && (
 							<th
-								className="dataviews-view-table__checkbox-column"
+								className={ clsx(
+									'dataviews-view-table__checkbox-column',
+									getFrozenColumnProps(
+										0,
+										frozenColumnCount,
+										isHorizontallyScrolled
+									).className
+								) }
+								style={
+									getFrozenColumnProps(
+										0,
+										frozenColumnCount,
+										isHorizontallyScrolled
+									).style
+								}
 								scope="col"
 								onContextMenu={ handleHeaderContextMenu }
 							>
@@ -489,7 +593,14 @@ function ViewTable< Item >( {
 							</th>
 						) }
 						{ hasPrimaryColumn && (
-							<th scope="col">
+							<th
+								scope="col"
+								{ ...getFrozenColumnProps(
+									hasBulkActions ? 1 : 0,
+									frozenColumnCount,
+									isHorizontallyScrolled
+								) }
+							>
 								{ titleField && (
 									<ColumnHeaderMenu
 										ref={ headerMenuRef(
@@ -535,7 +646,23 @@ function ViewTable< Item >( {
 							return (
 								<th
 									key={ column }
+									className={
+										getFrozenColumnProps(
+											( hasBulkActions ? 1 : 0 ) +
+												( hasPrimaryColumn ? 1 : 0 ) +
+												index,
+											frozenColumnCount,
+											isHorizontallyScrolled
+										).className
+									}
 									style={ {
+										...getFrozenColumnProps(
+											( hasBulkActions ? 1 : 0 ) +
+												( hasPrimaryColumn ? 1 : 0 ) +
+												index,
+											frozenColumnCount,
+											isHorizontallyScrolled
+										).style,
 										width,
 										maxWidth,
 										minWidth,
@@ -646,6 +773,12 @@ function ViewTable< Item >( {
 											isActionsColumnSticky={
 												! isHorizontalScrollEnd
 											}
+											frozenColumnCount={
+												frozenColumnCount
+											}
+											isHorizontallyScrolled={
+												isHorizontallyScrolled
+											}
 										/>
 									);
 								} ) }
@@ -686,6 +819,10 @@ function ViewTable< Item >( {
 										isItemClickable={ isItemClickable }
 										isActionsColumnSticky={
 											! isHorizontalScrollEnd
+										}
+										frozenColumnCount={ frozenColumnCount }
+										isHorizontallyScrolled={
+											isHorizontallyScrolled
 										}
 										posinset={
 											isInfiniteScroll
