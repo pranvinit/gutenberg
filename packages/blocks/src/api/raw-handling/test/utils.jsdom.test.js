@@ -369,4 +369,41 @@ describe( 'getBlockContentSchema', () => {
 			output
 		);
 	} );
+
+	it( 'should merge nested tagName schemas without mutating them', () => {
+		const transforms = deepFreeze( [
+			{
+				blockName: 'my/preformatted',
+				type: 'raw',
+				schema: {
+					pre: {
+						children: {
+							strong: { attributes: [ 'data-one' ] },
+						},
+					},
+				},
+			},
+			{
+				blockName: 'core/preformatted',
+				type: 'raw',
+				schema: {
+					pre: {
+						children: {
+							strong: { attributes: [ 'data-two' ] },
+						},
+					},
+				},
+			},
+		] );
+		const output = {
+			pre: {
+				children: {
+					strong: { attributes: [ 'data-one', 'data-two' ] },
+				},
+			},
+		};
+		expect( getBlockContentSchemaFromTransforms( transforms ) ).toEqual(
+			output
+		);
+	} );
 } );

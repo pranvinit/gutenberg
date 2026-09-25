@@ -97,21 +97,24 @@ export function getBlockContentSchemaFromTransforms(
 			return a;
 		}
 
+		// Merge into a copy, as the tagName schema may belong to a transform.
+		const merged = { ...a };
+
 		for ( const key in b ) {
-			if ( a[ key ] ) {
-				a[ key ] = mergeTagNameSchemaProperties(
-					a[ key ],
+			if ( merged[ key ] ) {
+				merged[ key ] = mergeTagNameSchemaProperties(
+					merged[ key ],
 					b[ key ],
 					key
 				);
 			} else if ( Array.isArray( b[ key ] ) ) {
-				a[ key ] = b[ key ].slice();
+				merged[ key ] = b[ key ].slice();
 			} else {
-				a[ key ] = { ...b[ key ] };
+				merged[ key ] = { ...b[ key ] };
 			}
 		}
 
-		return a;
+		return merged;
 	}
 
 	// A schema is an object with tagName schemas by tag name.
