@@ -172,4 +172,89 @@ class Render_Block_MediaText_Test extends WP_UnitTestCase {
 		$rendered = gutenberg_render_block_core_media_text( $attributes, $content );
 		$this->assertStringContainsString( '<img alt="" src="' . wp_get_attachment_image_url( self::$attachment_id, 'full' ) . '"', $rendered );
 	}
+
+	/**
+	 * Test gutenberg_render_block_core_media_text adds the lightbox to an image
+	 * that is not linked.
+	 *
+	 * @covers ::block_core_media_text_render_lightbox
+	 */
+	public function test_render_block_core_media_text_lightbox() {
+		$content = '<div class="wp-block-media-text is-stacked-on-mobile"><figure class="wp-block-media-text__media"><img src="canola.jpg" alt="Canola" class="wp-image-1 size-full"/></figure><div class="wp-block-media-text__content"><p></p></div></div>';
+
+		$attributes = array(
+			'useFeaturedImage' => false,
+			'lightbox'         => array( 'enabled' => true ),
+		);
+		$rendered   = gutenberg_render_block_core_media_text( $attributes, $content );
+
+		$this->assertStringContainsString( 'class="lightbox-trigger"', $rendered );
+
+		$processor = new WP_HTML_Tag_Processor( $rendered );
+		$processor->next_tag( 'figure' );
+		$this->assertTrue( $processor->has_class( 'wp-block-media-text__media' ) );
+		$this->assertTrue( $processor->has_class( 'wp-lightbox-container' ) );
+		$this->assertFalse( $processor->has_class( 'wp-block-image' ), 'The figure should keep the class names of the Media & Text block.' );
+
+		// The lightbox overlay is styled for the figure of an Image block.
+		$image_id = $processor->get_attribute( 'data-wp-key' );
+		$state    = wp_interactivity_state( 'core/image' );
+		$this->assertSame( 'wp-block-image', $state['metadata'][ $image_id ]['figureClassNames'] );
+
+		$this->assertTrue( wp_style_is( 'wp-block-image' ), 'The styles of the lightbox should be enqueued.' );
+	}
+
+	/**
+	 * Test gutenberg_render_block_core_media_text does not add the lightbox to
+	 * an image that is linked, or when the lightbox is not enabled.
+	 *
+	 * @covers ::block_core_media_text_render_lightbox
+	 */
+	public function test_render_block_core_media_text_lightbox_not_added() {
+		$content = '<div class="wp-block-media-text is-stacked-on-mobile"><figure class="wp-block-media-text__media"><a href="https://example.com"><img src="canola.jpg" alt=""/></a></figure><div class="wp-block-media-text__content"><p></p></div></div>';
+
+		$attributes = array(
+			'useFeaturedImage' => false,
+			'lightbox'         => array( 'enabled' => true ),
+		);
+		$this->assertSame( $content, gutenberg_render_block_core_media_text( $attributes, $content ) );
+
+		$content = '<div class="wp-block-media-text is-stacked-on-mobile"><figure class="wp-block-media-text__media"><img src="canola.jpg" alt=""/></figure><div class="wp-block-media-text__content"><p></p></div></div>';
+
+		$attributes = array(
+			'useFeaturedImage' => false,
+			'lightbox'         => array( 'enabled' => false ),
+		);
+		$this->assertSame( $content, gutenberg_render_block_core_media_text( $attributes, $content ) );
+	}
+
+	/**
+	 * Test gutenberg_render_block_core_media_text adds the lightbox to the image
+	 * of the block on the right, and not to the image of a second media & text
+	 * block nested inside the content area.
+	 *
+	 * @covers ::block_core_media_text_render_lightbox
+	 */
+	public function test_render_block_core_media_text_lightbox_media_on_right_nested() {
+		$nested_block = '<div class="wp-block-media-text is-stacked-on-mobile"><figure class="wp-block-media-text__media"><img src="nested.jpg" alt=""/></figure><div class="wp-block-media-text__content"><p></p></div></div>';
+		$content      = '<div class="wp-block-media-text has-media-on-the-right is-stacked-on-mobile"><div class="wp-block-media-text__content">' . $nested_block . '</div><figure class="wp-block-media-text__media"><img src="canola.jpg" alt=""/></figure></div>';
+
+		$attributes = array(
+			'useFeaturedImage' => false,
+			'mediaPosition'    => 'right',
+			'lightbox'         => array( 'enabled' => true ),
+		);
+		$rendered   = gutenberg_render_block_core_media_text( $attributes, $content );
+
+		$this->assertStringContainsString( $nested_block, $rendered );
+		$this->assertSame( 1, substr_count( $rendered, 'class="lightbox-trigger"' ) );
+
+		$processor = new WP_HTML_Tag_Processor( $rendered );
+		$processor->next_tag( 'img' );
+		$this->assertSame( 'nested.jpg', $processor->get_attribute( 'src' ) );
+		$this->assertNull( $processor->get_attribute( 'data-wp-on--click' ) );
+		$processor->next_tag( 'img' );
+		$this->assertSame( 'canola.jpg', $processor->get_attribute( 'src' ) );
+		$this->assertSame( 'actions.showLightbox', $processor->get_attribute( 'data-wp-on--click' ) );
+	}
 }
