@@ -43,6 +43,34 @@ export function getBlockContentSchemaFromTransforms(
 		);
 	} );
 
+	// Merged children schemas, keyed by the pair of children schemas they were
+	// merged from. Schemas can be recursive (a list item can contain a list), so
+	// a merge that leads back to a pair of schemas that is already being merged
+	// reuses that merge instead of recursing forever.
+	const mergedChildrenSchemas = new WeakMap<
+		object,
+		WeakMap< object, any >
+	>();
+
+	function mergeChildrenSchemas( a: any, b: any ) {
+		let mergedWithA = mergedChildrenSchemas.get( a );
+		if ( ! mergedWithA ) {
+			mergedWithA = new WeakMap();
+			mergedChildrenSchemas.set( a, mergedWithA );
+		}
+
+		if ( mergedWithA.has( b ) ) {
+			return mergedWithA.get( b );
+		}
+
+		const merged = { ...a };
+		// Register the merge before it is performed, so that recursive schemas
+		// point back to it.
+		mergedWithA.set( b, merged );
+
+		return mergeSchemas( merged, b );
+	}
+
 	function mergeTagNameSchemaProperties(
 		objValue: any,
 		srcValue: any,
@@ -54,10 +82,7 @@ export function getBlockContentSchemaFromTransforms(
 					return '*';
 				}
 
-				return mergeSchemas(
-					{ ...( objValue || {} ) },
-					srcValue || {}
-				);
+				return mergeChildrenSchemas( objValue || {}, srcValue || {} );
 			}
 			case 'attributes':
 			case 'require': {

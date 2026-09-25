@@ -406,4 +406,50 @@ describe( 'getBlockContentSchema', () => {
 			output
 		);
 	} );
+
+	it( 'should merge duplicate recursive schemas', () => {
+		function getListSchema() {
+			const listContentSchema = {
+				strong: {},
+				ul: {},
+				ol: { attributes: [ 'type' ] },
+			};
+
+			[ 'ul', 'ol' ].forEach( ( tag ) => {
+				listContentSchema[ tag ].children = {
+					li: {
+						children: listContentSchema,
+					},
+				};
+			} );
+
+			return listContentSchema;
+		}
+
+		const transforms = deepFreeze( [
+			{
+				blockName: 'core/list',
+				type: 'raw',
+				schema: getListSchema(),
+			},
+			{
+				blockName: 'my/list',
+				type: 'raw',
+				schema: getListSchema(),
+				isMatch: () => false,
+			},
+		] );
+		const schema = getBlockContentSchemaFromTransforms( transforms );
+		const { li } = schema.ol.children;
+
+		expect( schema.ol.attributes ).toEqual( [ 'type' ] );
+		expect( Object.keys( li.children ) ).toEqual( [
+			'strong',
+			'ul',
+			'ol',
+		] );
+		// The merged schema keeps the recursion of the merged schemas.
+		expect( li.children.ol.children ).toBe( schema.ol.children );
+		expect( li.children.ul.children ).toBe( schema.ul.children );
+	} );
 } );
