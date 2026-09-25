@@ -181,10 +181,10 @@ function block_core_media_text_render_lightbox( $attributes, $content ) {
 	}
 
 	$media_tag_processor->set_attribute( 'id', $unique_id );
-	$content = $media_tag_processor->get_updated_html();
+	$marked_content = $media_tag_processor->get_updated_html();
 
 	// The figure only holds an image, a link or a video, never another figure.
-	if ( ! preg_match( '/<figure\s+id="' . preg_quote( $unique_id, '/' ) . '".*?<\/figure>/s', $content, $figure_match ) ) {
+	if ( ! preg_match( '/<figure\s+id="' . preg_quote( $unique_id, '/' ) . '".*?<\/figure>/s', $marked_content, $figure_match ) ) {
 		return $content;
 	}
 
@@ -197,43 +197,39 @@ function block_core_media_text_render_lightbox( $attributes, $content ) {
 
 	// Like in the Image block, the lightbox only applies to an image that is
 	// not linked.
-	$has_unlinked_image = $figure_processor->next_tag() && 'IMG' === $figure_processor->get_tag();
-
-	if ( $has_unlinked_image ) {
-		// The lightbox overlay reuses the class names of the figure, and is
-		// styled for the figure of an Image block. The styles of the Media &
-		// Text block would stretch the enlarged image, so the figure is handed
-		// to the lightbox as the figure of an Image block.
-		$figure_processor->seek( 'figure' );
-		$figure_processor->remove_class( 'wp-block-media-text__media' );
-		$figure_processor->add_class( 'wp-block-image' );
+	if ( ! $figure_processor->next_tag() || 'IMG' !== $figure_processor->get_tag() ) {
+		return $content;
 	}
 
+	// The lightbox overlay reuses the class names of the figure, and is styled
+	// for the figure of an Image block. The styles of the Media & Text block
+	// would stretch the enlarged image, so the figure is handed to the lightbox
+	// as the figure of an Image block.
+	$figure_processor->seek( 'figure' );
+	$figure_processor->remove_class( 'wp-block-media-text__media' );
+	$figure_processor->add_class( 'wp-block-image' );
+
+	$media_id    = ! empty( $attributes['useFeaturedImage'] ) ? get_post_thumbnail_id() : ( $attributes['mediaId'] ?? null );
+	$image_block = new WP_Block(
+		array(
+			'blockName' => 'core/image',
+			'attrs'     => $media_id ? array( 'id' => $media_id ) : array(),
+		)
+	);
+	$media       = block_core_image_render_lightbox( $figure_processor->get_updated_html(), $image_block->parsed_block, $image_block );
+
+	// Restore the class names of the figure.
+	$figure_processor = new WP_HTML_Tag_Processor( $media );
+	$figure_processor->next_tag( 'figure' );
+	$figure_processor->remove_class( 'wp-block-image' );
+	$figure_processor->add_class( 'wp-block-media-text__media' );
 	$media = $figure_processor->get_updated_html();
 
-	if ( $has_unlinked_image ) {
-		$media_id    = ! empty( $attributes['useFeaturedImage'] ) ? get_post_thumbnail_id() : ( $attributes['mediaId'] ?? null );
-		$image_block = new WP_Block(
-			array(
-				'blockName' => 'core/image',
-				'attrs'     => $media_id ? array( 'id' => $media_id ) : array(),
-			)
-		);
-		$media       = block_core_image_render_lightbox( $media, $image_block->parsed_block, $image_block );
+	// The page may hold no Image block to load the lightbox.
+	wp_enqueue_script_module( '@wordpress/block-library/image/view' );
+	wp_enqueue_style( 'wp-block-image' );
 
-		// Restore the class names of the figure.
-		$figure_processor = new WP_HTML_Tag_Processor( $media );
-		$figure_processor->next_tag( 'figure' );
-		$figure_processor->remove_class( 'wp-block-image' );
-		$figure_processor->add_class( 'wp-block-media-text__media' );
-		$media = $figure_processor->get_updated_html();
-
-		// The page may hold no Image block to load the lightbox.
-		wp_enqueue_script_module( '@wordpress/block-library/image/view' );
-		wp_enqueue_style( 'wp-block-image' );
-	}
-
-	return str_replace( $figure, $media, $content );
+	return str_replace( $figure, $media, $marked_content );
 }
 
 /**
