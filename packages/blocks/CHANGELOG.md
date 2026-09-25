@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Bug Fixes
+
+-   Pasting no longer hangs when two raw transforms declare the same tag with a recursive schema, such as a custom list block alongside `core/list`: merging the schemas now keeps their recursion instead of following it forever, and no longer mutates the schemas declared by the transforms ([#83285](https://github.com/WordPress/gutenberg/issues/83285)).
+
 ## 16.1.0 (2026-09-23)
 
 ### New Features
