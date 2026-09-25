@@ -41,6 +41,12 @@
 		"linkDestination": {
 			"type": "string"
 		},
+		"lightbox": {
+			"type": "object",
+			"enabled": {
+				"type": "boolean"
+			}
+		},
 		"linkTarget": {
 			"type": "string",
 			"source": "attribute",
