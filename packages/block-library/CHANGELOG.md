@@ -5,6 +5,7 @@
 ### Enhancements
 
 -   Columns: Remove the column count slider from the block settings ([#83262](https://github.com/WordPress/gutenberg/pull/83262)).
+-   Media & Text: Add the "Enlarge on click" option to the media link control, which opens the image in the lightbox of the Image block. It is only enabled from the block itself, so the image of an existing block does not follow the lightbox default of Image blocks ([#83341](https://github.com/WordPress/gutenberg/issues/83341)).
 
 ## 11.1.0 (2026-09-23)
 
