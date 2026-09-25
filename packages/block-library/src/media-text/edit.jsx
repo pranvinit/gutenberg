@@ -8,6 +8,7 @@ import {
 	useInnerBlocksProps,
 	InspectorControls,
 	useBlockProps,
+	useSettings,
 	__experimentalImageURLInputUI as ImageURLInputUI,
 	store as blockEditorStore,
 	useBlockEditingMode,
@@ -190,6 +191,7 @@ function MediaTextEdit( {
 		href,
 		imageFill,
 		isStackedOnMobile,
+		lightbox,
 		linkClass,
 		linkDestination,
 		linkTarget,
@@ -288,6 +290,24 @@ function MediaTextEdit( {
 
 	const onSetHref = ( props ) => {
 		setAttributes( props );
+	};
+
+	// The lightbox is the one of the Image block, so it follows its settings.
+	const [ lightboxSetting ] = useSettings( 'blocks.core/image.lightbox' );
+	// Unlike in the Image block, the lightbox is only enabled by the block
+	// itself, so that existing blocks keep their behavior.
+	const lightboxEnabled = !! lightbox?.enabled;
+	// Show the setting when it can be edited, or so that an enabled lightbox
+	// can be disabled even if the settings no longer allow editing it.
+	const showLightboxSetting =
+		lightboxEnabled || !! lightboxSetting?.allowEditing;
+
+	const onSetLightbox = ( enable ) => {
+		setAttributes( { lightbox: enable ? { enabled: true } : undefined } );
+	};
+
+	const resetLightbox = () => {
+		setAttributes( { lightbox: undefined } );
 	};
 
 	const onWidthChange = ( width ) => {
@@ -564,6 +584,10 @@ function MediaTextEdit( {
 						linkTarget={ linkTarget }
 						linkClass={ linkClass }
 						rel={ rel }
+						showLightboxSetting={ showLightboxSetting }
+						lightboxEnabled={ lightboxEnabled }
+						onSetLightbox={ onSetLightbox }
+						resetLightbox={ resetLightbox }
 					/>
 				) }
 			</BlockControls>
