@@ -504,7 +504,17 @@ if ( ! class_exists( 'WP_Style_Engine' ) ) {
 						 * comma-separated background-image value, matching the JS style engine.
 						 */
 						if ( isset( $css_declarations['background-image'] ) && isset( $parsed_styles['declarations']['background-image'] ) ) {
-							$css_declarations['background-image'] = $css_declarations['background-image'] . ', ' . $parsed_styles['declarations']['background-image'];
+							/*
+							 * A removed image (`none`) has nothing to add to a gradient,
+							 * so output the gradient on its own.
+							 */
+							if ( 'none' === $parsed_styles['declarations']['background-image'] ) {
+								$parsed_styles['declarations']['background-image'] = $css_declarations['background-image'];
+							} elseif ( 'none' !== $css_declarations['background-image'] ) {
+								$css_declarations['background-image'] = $css_declarations['background-image'] . ', ' . $parsed_styles['declarations']['background-image'];
+							} else {
+								unset( $css_declarations['background-image'] );
+							}
 						}
 						$parsed_styles['declarations'] = array_merge( $parsed_styles['declarations'], $css_declarations );
 					}

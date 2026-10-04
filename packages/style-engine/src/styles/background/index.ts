@@ -18,7 +18,14 @@ const backgroundImage = {
 						safeDecodeURI( _backgroundImage.url )
 					) }' )`
 				: getCSSValueFromRawStyle( _backgroundImage );
-		const cssValue = [ gradient, backgroundImageValue ]
+		// A removed image (`none`) has nothing to add to a gradient, so
+		// output the gradient on its own rather than `<gradient>, none`.
+		const cssValue = [
+			gradient,
+			gradient && backgroundImageValue === 'none'
+				? ''
+				: backgroundImageValue,
+		]
 			.filter( Boolean )
 			.join( ', ' );
 

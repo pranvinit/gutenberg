@@ -567,6 +567,29 @@ describe( 'getCSSRules', () => {
 		] );
 	} );
 
+	it( 'should output only gradient as background-image when the background image is removed', () => {
+		expect(
+			getCSSRules(
+				{
+					background: {
+						backgroundImage: 'none',
+						gradient:
+							'linear-gradient(135deg,rgb(255,203,112) 0%,rgb(33,32,33) 42%,rgb(65,88,208) 100%)',
+					},
+				},
+				{
+					selector: '.some-selector',
+				}
+			)
+		).toEqual( [
+			{
+				selector: '.some-selector',
+				key: 'backgroundImage',
+				value: 'linear-gradient(135deg,rgb(255,203,112) 0%,rgb(33,32,33) 42%,rgb(65,88,208) 100%)',
+			},
+		] );
+	} );
+
 	it( 'should output only gradient as background-image when no background image is set', () => {
 		expect(
 			getCSSRules(

@@ -584,6 +584,23 @@ class WP_Style_Engine_Test extends WP_UnitTestCase {
 				),
 			),
 
+			'inline_background_gradient_with_removed_image' => array(
+				'block_styles'    => array(
+					'background' => array(
+						'backgroundImage' => 'none',
+						'gradient'        => 'linear-gradient(135deg,rgb(255,0,0) 0%,rgb(0,0,255) 100%)',
+					),
+				),
+				'options'         => array(),
+				'expected_output' => array(
+					'css'          => 'background-image:linear-gradient(135deg,rgb(255,0,0) 0%,rgb(0,0,255) 100%);',
+					'declarations' => array(
+						'background-image' => 'linear-gradient(135deg,rgb(255,0,0) 0%,rgb(0,0,255) 100%)',
+					),
+					'classnames'   => 'has-background',
+				),
+			),
+
 			'inline_background_image_url_with_background_size' => array(
 				'block_styles'    => array(
 					'background' => array(
