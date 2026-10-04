@@ -8,6 +8,7 @@
 
 ### Enhancements
 
+-   Auto-generated inspector controls of PHP-only blocks: Validate values against the attribute schema (`minimum`, `maximum`, `minLength`, `maxLength`, `pattern` and `enum`) and reveal the controls holding invalid values ([#83367](https://github.com/WordPress/gutenberg/issues/83367)).
 -   Inserter: Open faster when many block types are registered ([#83446](https://github.com/WordPress/gutenberg/pull/83446)).
 -   State control badges: migrate from the private `@wordpress/components` `Badge` to `@wordpress/ui` `Badge` ([#82608](https://github.com/WordPress/gutenberg/pull/82608)).
 -   Use the `inertValue` helper to set `inert` attributes, for better React 18/19 compatibility ([#83871](https://github.com/WordPress/gutenberg/pull/83871)).
