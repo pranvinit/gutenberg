@@ -394,9 +394,16 @@ function BackgroundImageControls( {
 
 	const hasValue = hasBackgroundImageValue( style );
 
+	// Removing an inherited image stores the `'none'` sentinel, which outputs
+	// `background-image: none` and would also hide an inherited gradient, as
+	// both share the `background-image` property. Carry that gradient over
+	// so that only the image is removed.
 	const onRemove = () =>
 		onChange(
 			setImmutably( style, [ 'background' ], {
+				gradient:
+					style?.background?.gradient ??
+					inheritedValue?.background?.gradient,
 				backgroundImage: 'none',
 			} )
 		);
