@@ -209,4 +209,57 @@ describe( 'generateFieldsFromAttributes', () => {
 		} );
 		expect( result.form.fields ).toEqual( [ 'sizes' ] );
 	} );
+
+	it( 'should map numeric schema constraints to validation rules', () => {
+		const attributes = markForAutoInspectorControl( {
+			count: {
+				type: 'integer',
+				minimum: 1,
+				maximum: 10,
+			},
+		} );
+
+		const result = generateFieldsFromAttributes( attributes );
+
+		expect( result.fields[ 0 ] ).toEqual( {
+			id: 'count',
+			label: 'count',
+			type: 'integer',
+			isValid: { min: 1, max: 10 },
+		} );
+	} );
+
+	it( 'should map string schema constraints to validation rules', () => {
+		const attributes = markForAutoInspectorControl( {
+			code: {
+				type: 'string',
+				minLength: 2,
+				maxLength: 8,
+				pattern: '^[a-z]+$',
+			},
+		} );
+
+		const result = generateFieldsFromAttributes( attributes );
+
+		expect( result.fields[ 0 ] ).toEqual( {
+			id: 'code',
+			label: 'code',
+			type: 'text',
+			isValid: { minLength: 2, maxLength: 8, pattern: '^[a-z]+$' },
+		} );
+	} );
+
+	it( 'should ignore constraints that do not apply to the attribute type', () => {
+		const attributes = markForAutoInspectorControl( {
+			enabled: {
+				type: 'boolean',
+				minimum: 1,
+				maxLength: 3,
+			},
+		} );
+
+		const result = generateFieldsFromAttributes( attributes );
+
+		expect( result.fields[ 0 ] ).not.toHaveProperty( 'isValid' );
+	} );
 } );

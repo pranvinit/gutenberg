@@ -64,5 +64,46 @@ function createFieldFromAttribute( name, def ) {
 		} ) );
 	}
 
+	const isValid = getValidationRulesFromAttribute( def );
+	if ( isValid ) {
+		field.isValid = isValid;
+	}
+
 	return field;
+}
+
+/**
+ * Maps the JSON Schema constraints of a block attribute definition to
+ * DataForm validation rules, so that values the server would reject are
+ * flagged on the corresponding control. Enum constraints don't need a rule:
+ * DataForm validates fields with `elements` by default.
+ *
+ * @param {Object} def - The attribute definition from block.json
+ * @return {Object|undefined} DataForm validation rules, if any apply.
+ */
+function getValidationRulesFromAttribute( def ) {
+	const rules = {};
+
+	if ( def.type === 'number' || def.type === 'integer' ) {
+		if ( typeof def.minimum === 'number' ) {
+			rules.min = def.minimum;
+		}
+		if ( typeof def.maximum === 'number' ) {
+			rules.max = def.maximum;
+		}
+	}
+
+	if ( def.type === 'string' ) {
+		if ( Number.isInteger( def.minLength ) ) {
+			rules.minLength = def.minLength;
+		}
+		if ( Number.isInteger( def.maxLength ) ) {
+			rules.maxLength = def.maxLength;
+		}
+		if ( typeof def.pattern === 'string' ) {
+			rules.pattern = def.pattern;
+		}
+	}
+
+	return Object.keys( rules ).length ? rules : undefined;
 }
