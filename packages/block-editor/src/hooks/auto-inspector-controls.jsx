@@ -1,8 +1,13 @@
 import { getBlockType, store as blocksStore } from '@wordpress/blocks';
 import { PanelBody } from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
-import { DataForm } from '@wordpress/dataviews';
-import { useContext, useMemo } from '@wordpress/element';
+import { DataForm, useFormValidity } from '@wordpress/dataviews';
+import {
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+} from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import InspectorControls from '../components/inspector-controls';
 import { useBlockEditingMode } from '../components/block-editing-mode';
@@ -83,6 +88,27 @@ function AutoRegisterControls( { name, clientId, setAttributes } ) {
 		return generateFieldsFromAttributes( blockType.attributes );
 	}, [ blockType?.attributes ] );
 
+	const { validity, isValid } = useFormValidity( attributes, fields, form );
+
+	// Reveal the error state of controls holding values that fail their
+	// schema, such as a value the server would reject when rendering the
+	// block, without waiting for the user to interact with them.
+	const formRef = useRef();
+	useEffect( () => {
+		if ( isValid ) {
+			return;
+		}
+		formRef.current
+			?.querySelectorAll( 'input, textarea, select' )
+			.forEach( ( input ) => {
+				if ( input.willValidate && ! input.validity.valid ) {
+					input.dispatchEvent(
+						new Event( 'invalid', { cancelable: true } )
+					);
+				}
+			} );
+	}, [ isValid, validity ] );
+
 	if ( blockEditingMode !== 'default' ) {
 		return null;
 	}
@@ -94,12 +120,15 @@ function AutoRegisterControls( { name, clientId, setAttributes } ) {
 	return (
 		<InspectorControls>
 			<PanelBody title={ __( 'Settings' ) }>
-				<DataForm
-					data={ attributes }
-					fields={ fields }
-					form={ form }
-					onChange={ setAttributes }
-				/>
+				<div ref={ formRef }>
+					<DataForm
+						data={ attributes }
+						fields={ fields }
+						form={ form }
+						validity={ validity }
+						onChange={ setAttributes }
+					/>
+				</div>
 			</PanelBody>
 		</InspectorControls>
 	);
