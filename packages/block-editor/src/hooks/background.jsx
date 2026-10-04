@@ -318,6 +318,29 @@ export function BackgroundImagePanel( {
 			};
 		}
 
+		// A block's own background color overrides the background image or
+		// gradient it inherits from Global Styles, which would otherwise be
+		// painted over it. Remove the inherited background when a color is
+		// set and the block has no background image or gradient of its own.
+		const isSettingBackgroundColor =
+			!! newBackgroundColorValue &&
+			newBackgroundColorValue !== styleValue?.color?.background;
+		const hasInheritedBackground =
+			( hasBackgroundImageValue( inheritedValue ) &&
+				inheritedValue?.background?.backgroundImage !== 'none' ) ||
+			hasBackgroundGradientValue( inheritedValue );
+		if (
+			isSettingBackgroundColor &&
+			hasInheritedBackground &&
+			! hasBackgroundImageValue( newStyle ) &&
+			! hasBackgroundGradientValue( newStyle )
+		) {
+			cleanedStyle.background = {
+				...cleanedStyle.background,
+				backgroundImage: 'none',
+			};
+		}
+
 		const isMigrating =
 			backgroundGradientSupported && !! style?.color?.gradient;
 		const newAttributes = {
