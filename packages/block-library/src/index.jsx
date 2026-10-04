@@ -8,7 +8,8 @@ import {
 } from '@wordpress/blocks';
 import { useDisabled } from '@wordpress/compose';
 import { select } from '@wordpress/data';
-import { useBlockProps } from '@wordpress/block-editor';
+import { useBlockProps, Warning } from '@wordpress/block-editor';
+import { useRef } from '@wordpress/element';
 import { useServerSideRender } from '@wordpress/server-side-render';
 import { __, sprintf } from '@wordpress/i18n';
 import HtmlRenderer from './utils/html-renderer';
@@ -341,6 +342,16 @@ export const registerCoreBlocks = (
 						urlQueryArgs: { post_id: context?.postId },
 					} );
 
+					// Keep the last successful render, so that an attribute
+					// failing validation doesn't take the whole block preview
+					// down with it. The offending control is flagged in the
+					// block inspector by the auto-register hook.
+					const lastContentRef = useRef( '' );
+					if ( status === 'success' ) {
+						// eslint-disable-next-line react-hooks/refs
+						lastContentRef.current = content;
+					}
+
 					if ( status === 'loading' ) {
 						return (
 							<div { ...blockProps }>{ __( 'Loading…' ) }</div>
@@ -348,13 +359,24 @@ export const registerCoreBlocks = (
 					}
 
 					if ( status === 'error' ) {
+						const errorMessage = sprintf(
+							/* translators: %s: error message describing the problem */
+							__( 'Error loading block: %s' ),
+							error
+						);
+
+						// eslint-disable-next-line react-hooks/refs
+						if ( ! lastContentRef.current ) {
+							return <div { ...blockProps }>{ errorMessage }</div>;
+						}
+
 						return (
 							<div { ...blockProps }>
-								{ sprintf(
-									/* translators: %s: error message describing the problem */
-									__( 'Error loading block: %s' ),
-									error
-								) }
+								<Warning>{ errorMessage }</Warning>
+								<HtmlRenderer
+									// eslint-disable-next-line react-hooks/refs
+									html={ lastContentRef.current }
+								/>
 							</div>
 						);
 					}
