@@ -1,6 +1,13 @@
 import { Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { useMemo, useState, useContext } from '@wordpress/element';
+import {
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useContext,
+} from '@wordpress/element';
+import { speak } from '@wordpress/a11y';
 import { useRegistry } from '@wordpress/data';
 import { closeSmall, chevronDown } from '@wordpress/icons';
 import { useViewportMatch } from '@wordpress/compose';
@@ -158,6 +165,7 @@ function ActionTrigger< Item >( {
 			size="compact"
 			onClick={ onClick }
 			isBusy={ isBusy }
+			aria-haspopup={ 'RenderModal' in action ? 'dialog' : undefined }
 		>
 			{ ! isMobile && label }
 		</Button>
@@ -384,6 +392,23 @@ function BulkActionsContent< Item >( {
 			} ),
 		[ actions, selectedItems ]
 	);
+	// Announce when selecting the first item makes bulk actions available,
+	// and when clearing the selection removes them.
+	const hasBulkActions = actionsToShow.length > 0;
+	const hadBulkActions = useRef( hasBulkActions );
+	useEffect( () => {
+		if ( hadBulkActions.current === hasBulkActions ) {
+			return;
+		}
+		hadBulkActions.current = hasBulkActions;
+		speak(
+			hasBulkActions
+				? __( 'Bulk actions available.' )
+				: __( 'Bulk actions unavailable.' ),
+			'polite'
+		);
+	}, [ hasBulkActions ] );
+
 	const renderContent = ( actionInProgress: string | null ) =>
 		renderBulkActionsContent(
 			data,

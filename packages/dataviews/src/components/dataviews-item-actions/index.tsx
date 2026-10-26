@@ -1,7 +1,7 @@
 import type { MouseEventHandler } from 'react';
 import { Button, Modal } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { useMemo, useState } from '@wordpress/element';
+import { useCallback, useContext, useMemo, useState } from '@wordpress/element';
 import { moreVertical } from '@wordpress/icons';
 import { useRegistry } from '@wordpress/data';
 import { useViewportMatch } from '@wordpress/compose';
@@ -11,6 +11,7 @@ import {
 	Stack,
 } from '@wordpress/ui';
 import { kebabCase } from '@wordpress/kebab-case';
+import DataViewsContext from '../dataviews-context';
 import type { Action, ActionModal as ActionModalType } from '../../types';
 
 export interface ActionTriggerProps< Item > {
@@ -20,6 +21,13 @@ export interface ActionTriggerProps< Item > {
 	items: Item[];
 	variant?: 'primary' | 'secondary' | 'tertiary' | 'link';
 }
+
+const FOCUS_FALLBACK_SELECTOR = [
+	'.dataviews-layout__container input:not([disabled])',
+	'.dataviews-layout__container button:not([disabled])',
+	'.dataviews-layout__container [tabindex="0"]',
+	'.dataviews-bulk-actions input:not([disabled])',
+].join( ',' );
 
 export interface ActionModalProps< Item > {
 	action: ActionModalType< Item >;
@@ -69,6 +77,7 @@ function ButtonTrigger< Item >( {
 			size="compact"
 			variant={ variant }
 			onClick={ onClick }
+			aria-haspopup={ 'RenderModal' in action ? 'dialog' : undefined }
 		>
 			{ label }
 		</Button>
@@ -83,7 +92,11 @@ function MenuItemTrigger< Item >( {
 	const label =
 		typeof action.label === 'string' ? action.label : action.label( items );
 	return (
-		<Menu.Item disabled={ action.disabled } onClick={ onClick }>
+		<Menu.Item
+			disabled={ action.disabled }
+			onClick={ onClick }
+			aria-haspopup={ 'RenderModal' in action ? 'dialog' : undefined }
+		>
 			<Menu.ItemLabel>{ label }</Menu.ItemLabel>
 		</Menu.Item>
 	);
@@ -94,8 +107,33 @@ export function ActionModal< Item >( {
 	items,
 	closeModal,
 }: ActionModalProps< Item > ) {
+	const { containerRef } = useContext( DataViewsContext );
 	const label =
 		typeof action.label === 'string' ? action.label : action.label( items );
+
+	// The modal returns focus to its trigger when it closes. When the action
+	// removes the item (e.g. moving it to the trash), the trigger is gone and
+	// focus falls back to the document body, so move it into the view instead.
+	const closeModalAndRestoreFocus = useCallback( () => {
+		closeModal();
+		const container = containerRef.current;
+		if ( ! container ) {
+			return;
+		}
+		const { ownerDocument } = container;
+		ownerDocument.defaultView?.requestAnimationFrame( () => {
+			const { activeElement } = ownerDocument;
+			if ( activeElement && activeElement !== ownerDocument.body ) {
+				return;
+			}
+			const wrapper =
+				container.closest< HTMLElement >( '.dataviews-wrapper' ) ??
+				container;
+			wrapper
+				.querySelector< HTMLElement >( FOCUS_FALLBACK_SELECTOR )
+				?.focus();
+		} );
+	}, [ closeModal, containerRef ] );
 
 	const modalHeader =
 		typeof action.modalHeader === 'function'
@@ -105,14 +143,17 @@ export function ActionModal< Item >( {
 		<Modal
 			title={ modalHeader || label }
 			__experimentalHideHeader={ !! action.hideModalHeader }
-			onRequestClose={ closeModal }
+			onRequestClose={ closeModalAndRestoreFocus }
 			focusOnMount={ action.modalFocusOnMount ?? true }
 			size={ action.modalSize || 'medium' }
 			overlayClassName={ `dataviews-action-modal dataviews-action-modal__${ kebabCase(
 				action.id
 			) }` }
 		>
-			<action.RenderModal items={ items } closeModal={ closeModal } />
+			<action.RenderModal
+				items={ items }
+				closeModal={ closeModalAndRestoreFocus }
+			/>
 		</Modal>
 	);
 }

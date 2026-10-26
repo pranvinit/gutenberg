@@ -8,6 +8,7 @@
 
 ### Enhancements
 
+-   Accessibility: move focus into the view when an action removes the item whose trigger opened its modal, announce when bulk actions become available or unavailable, and mark modal action triggers with `aria-haspopup="dialog"` ([#85052](https://github.com/WordPress/gutenberg/issues/85052)).
 -   Use the design system outline for keyboard focus on list items ([#85358](https://github.com/WordPress/gutenberg/pull/85358)).
 -   Simplify filter selection indicators and remove their hover colors ([#85191](https://github.com/WordPress/gutenberg/pull/85191)).
 
