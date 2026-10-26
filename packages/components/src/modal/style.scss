@@ -260,8 +260,7 @@ body.modal-open {
 	}
 
 	&.is-scrollable:focus-visible {
-		@include outset-ring__focus();
 		// Keep the ring inside the modal frame, which clips overflowing content.
-		outline-offset: calc(-1 * var(--wpds-border-width-focus));
+		@include inset-ring__focus();
 	}
 }

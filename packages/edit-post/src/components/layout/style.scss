@@ -53,9 +53,8 @@
 			content: "";
 			position: absolute;
 			inset: 0;
-			@include outset-ring__focus();
 			// Keep the ring inside the panel, which clips overflowing content.
-			outline-offset: calc(-1 * var(--wpds-border-width-focus));
+			@include inset-ring__focus();
 		}
 		> svg {
 			fill: currentColor;

@@ -126,9 +126,8 @@ div.dataviews-view-list {
 				content: "";
 				inset: var(--wp-admin-border-width-focus);
 				border-radius: var(--wpds-border-radius-sm);
-				@include outset-ring__focus();
 				// Keep the focus ring inside the item.
-				outline-offset: calc(-1 * var(--wpds-border-width-focus));
+				@include inset-ring__focus();
 			}
 		}
 	}

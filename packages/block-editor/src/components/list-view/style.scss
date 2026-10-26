@@ -98,8 +98,7 @@
 	}
 	&.is-selected .block-editor-list-view-block__menu:focus {
 		--focus-color: var(--wpds-color-foreground-interactive-brand-strong);
-		@include outset-ring__focus();
-		outline-offset: calc(-1 * var(--wpds-border-width-focus));
+		@include inset-ring__focus();
 	}
 	@media (forced-colors: active) {
 		&.is-selected td,

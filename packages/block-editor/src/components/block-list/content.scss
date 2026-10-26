@@ -383,8 +383,7 @@ _::-webkit-full-page-media, _:future, :root [data-has-multi-selection="true"] .b
 	}
 
 	&:focus {
-		@include outset-ring__focus();
-		outline-offset: calc(-1 * var(--wpds-border-width-focus));
+		@include inset-ring__focus();
 	}
 }
 

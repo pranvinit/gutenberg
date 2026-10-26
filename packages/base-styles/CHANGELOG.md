@@ -6,6 +6,10 @@
 
 -   Remove the `checkbox-control` and `radio-control` Sass mixins. Use the `Checkbox` and `Radio` primitives from `@wordpress/ui` instead, with `Radio` inside a `RadioGroup` ([#85248](https://github.com/WordPress/gutenberg/pull/85248)).
 
+### New Features
+
+-   Add the `inset-ring__focus` Sass mixin, an inset variant of `outset-ring__focus` for focus rings that would otherwise be clipped ([#85400](https://github.com/WordPress/gutenberg/issues/85400)).
+
 ## 14.0.0 (2026-10-20)
 
 ### Breaking Changes

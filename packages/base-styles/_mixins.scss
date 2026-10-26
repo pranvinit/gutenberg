@@ -179,6 +179,18 @@
 	outline-offset: wpds.var("--wpds-border-width-focus");
 }
 
+/**
+ * Inset variant of the standard focus ring, drawn inside the element's edge.
+ *
+ * Use it where an outset ring would be clipped, e.g. by a scroll container
+ * or a parent with `overflow: hidden`.
+ */
+
+@mixin inset-ring__focus() {
+	outline: wpds.var("--wpds-border-width-focus") solid var(--focus-color, #{ wpds.var("--wpds-color-stroke-focus") });
+	outline-offset: calc(-1 * #{ wpds.var("--wpds-border-width-focus") });
+}
+
 
 /**
  * Applies editor left position to the selector passed as argument
