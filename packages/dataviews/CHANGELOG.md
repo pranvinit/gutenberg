@@ -19,6 +19,7 @@
 
 ### Bug Fixes
 
+-   Show popovers, such as dropdowns and color pickers, above action modals instead of behind them, by giving action modals the standard modal stacking order ([#71463](https://github.com/WordPress/gutenberg/issues/71463)).
 -   DataForm: Keep the first line of a panel field label that wraps level with its value ([#85828](https://github.com/WordPress/gutenberg/pull/85828)).
 -   Replace the pagination page select with a page number input above 100 pages, so a dataset with tens of thousands of pages no longer freezes the browser ([#85303](https://github.com/WordPress/gutenberg/pull/85303)).
 
