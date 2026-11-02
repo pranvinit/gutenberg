@@ -16,6 +16,7 @@ import {
 import usePatternsState from '../hooks/use-patterns-state';
 import BlockPatternsList from '../../block-patterns-list';
 import usePatternsPaging from '../hooks/use-patterns-paging';
+import PatternGrid from './pattern-grid';
 import { PatternsFilter } from './patterns-filter';
 import { usePatternCategories } from './use-pattern-categories';
 import {
@@ -29,6 +30,15 @@ import type { BlockPattern } from '../../../store/types';
 import type { PatternCategoryPreviewsProps } from '../types';
 
 const noop = () => {};
+
+// Proof of concept for #85552, behind the "Inserter patterns in Data Views"
+// experiment.
+const isPatternGridEnabled = () =>
+	!! (
+		window as Window & {
+			__experimentalInserterPatternsDataViews?: boolean;
+		}
+	 ).__experimentalInserterPatternsDataViews;
 
 export function PatternCategoryPreviews( {
 	rootClientId,
@@ -194,20 +204,28 @@ export function PatternCategoryPreviews( {
 					>
 						{ __( 'Drag and drop patterns into the canvas.' ) }
 					</WCText>
-					<BlockPatternsList
-						ref={ scrollContainerRef }
-						blockPatterns={ pagingProps.categoryPatterns }
-						onClickPattern={ onClickPattern }
-						onHover={ onHover }
-						label={ category.label }
-						orientation="vertical"
-						category={ category.name }
-						isDraggable
-						showTitlesAsTooltip={ showTitlesAsTooltip }
-						// @ts-expect-error TODO: The list ignores `patternFilter`, so remove it.
-						patternFilter={ patternSourceFilter }
-						pagingProps={ pagingProps }
-					/>
+					{ isPatternGridEnabled() ? (
+						<PatternGrid
+							patterns={ currentCategoryPatterns }
+							onClickPattern={ onClickPattern }
+							onHover={ onHover }
+						/>
+					) : (
+						<BlockPatternsList
+							ref={ scrollContainerRef }
+							blockPatterns={ pagingProps.categoryPatterns }
+							onClickPattern={ onClickPattern }
+							onHover={ onHover }
+							label={ category.label }
+							orientation="vertical"
+							category={ category.name }
+							isDraggable
+							showTitlesAsTooltip={ showTitlesAsTooltip }
+							// @ts-expect-error TODO: The list ignores `patternFilter`, so remove it.
+							patternFilter={ patternSourceFilter }
+							pagingProps={ pagingProps }
+						/>
+					) }
 				</>
 			) }
 		</>

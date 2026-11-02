@@ -692,3 +692,30 @@ $media-grid-loading-min-height: 500px;
 		display: block;
 	}
 }
+
+// Proof of concept for #85552: the patterns of a category in a DataViews grid.
+.block-editor-inserter__pattern-grid {
+	padding: 0 $grid-unit-20;
+}
+
+.block-editor-inserter__pattern-grid__preview {
+	width: 100%;
+	cursor: pointer;
+}
+
+.block-editor-inserter__pattern-grid__placeholder {
+	min-height: $grid-unit-80;
+	background: $gray-100;
+}
+
+.block-editor-inserter__pattern-grid__footer {
+	flex-shrink: 0;
+	border-top: $border-width solid $gray-200;
+	padding: $grid-unit-20;
+}
+
+.block-editor-inserter__pattern-grid__range {
+	color: $gray-700;
+	font-size: $helptext-font-size;
+	white-space: nowrap;
+}

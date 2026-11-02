@@ -29,6 +29,11 @@ function gutenberg_initialize_experiments_settings() {
 					'label'       => __( 'Grid interactivity', 'gutenberg' ),
 					'description' => __( 'Enables enhancements to the Grid block that let you move and resize items in the editor canvas.', 'gutenberg' ),
 				),
+				array(
+					'id'          => 'gutenberg-inserter-patterns-dataviews',
+					'label'       => __( 'Inserter patterns in Data Views', 'gutenberg' ),
+					'description' => __( 'Lists the patterns of a category in the inserter with Data Views, paged the same way as the media tab.', 'gutenberg' ),
+				),
 			),
 		),
 		array(
