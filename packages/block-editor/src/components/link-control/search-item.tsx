@@ -187,7 +187,7 @@ export const LinkControlSearchItem = ( {
 	);
 };
 
-function getVisualTypeName( suggestion: LinkControlSuggestion ) {
+export function getVisualTypeName( suggestion: LinkControlSuggestion ) {
 	if ( suggestion.isFrontPage ) {
 		return __( 'Front page' );
 	}

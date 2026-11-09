@@ -367,7 +367,16 @@ export interface LinkControlSearchInputProps {
 	/**
 	 * Value change handler passed to the underlying `<URLInput />`.
 	 */
-	onChange?: ( value: string ) => void;
+	onChange?: ( value: string, suggestion?: LinkControlSuggestion ) => void;
+	/**
+	 * The suggestion chosen with Tab, which is shown as a tag over the input
+	 * until the link is applied.
+	 */
+	chosenSuggestion?: LinkControlSuggestion;
+	/**
+	 * Called when the tag of the chosen suggestion is removed.
+	 */
+	onRemoveChosenSuggestion?: () => void;
 	/**
 	 * Suggestion selection handler, called when the user chooses one of the
 	 * suggested items.

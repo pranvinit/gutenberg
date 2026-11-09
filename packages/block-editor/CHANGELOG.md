@@ -4,6 +4,7 @@
 
 ### Bug Fixes
 
+-   LinkControl: Bind the link to a page, post or term chosen with Tab and show it as a tag until the link is applied, and stop keeping the previous binding when a different URL is applied ([#86266](https://github.com/WordPress/gutenberg/issues/86266)).
 -   Block Styles: Show the active style variation in forced colors mode ([#86378](https://github.com/WordPress/gutenberg/pull/86378)).
 -   DimensionsTool: Draw the aspect ratio icons with sharp outlines, matching the generic aspect ratio icon ([#86344](https://github.com/WordPress/gutenberg/pull/86344)).
 

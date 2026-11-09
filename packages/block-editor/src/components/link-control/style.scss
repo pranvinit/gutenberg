@@ -80,6 +80,33 @@ $block-editor-link-control-number-of-actions: 1;
 	position: relative;
 }
 
+// Covers the input, which stays mounted so that focus and typing keep working.
+.block-editor-link-control__chosen-suggestion {
+	position: absolute;
+	z-index: 1;
+	right: $grid-unit-20 + $border-width;
+	bottom: $grid-unit-20 + $border-width;
+	left: $grid-unit-20 + $border-width;
+	display: flex;
+	align-items: center;
+	gap: $grid-unit-10;
+	height: $button-size-next-default-40px - 2 * $border-width;
+	padding: 0 $grid-unit-05 0 $grid-unit-15;
+	background: $white;
+}
+
+.block-editor-link-control__chosen-suggestion-title {
+	overflow: hidden;
+	flex: 1;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.block-editor-link-control__chosen-suggestion-type {
+	color: $gray-700;
+	font-size: $helptext-font-size;
+}
+
 .block-editor-link-control__field {
 	margin: $grid-unit-20; // allow margin collapse for vertical spacing.
 

@@ -11,6 +11,7 @@ import {
 import { __, sprintf } from '@wordpress/i18n';
 import { useRef, useState, useEffect, useMemo } from '@wordpress/element';
 import { useInstanceId, useMergeRefs } from '@wordpress/compose';
+import { speak } from '@wordpress/a11y';
 import { focus } from '@wordpress/dom';
 import { ENTER } from '@wordpress/keycodes';
 import { isShallowEqualObjects } from '@wordpress/is-shallow-equal';
@@ -175,10 +176,26 @@ function LinkControl( {
 		createSetInternalSettingValueHandler,
 	] = useInternalValue( value );
 
+	// A page, post or term chosen with Tab. It only binds the link when the
+	// link is applied, because holding its `id` in the internal value would
+	// disable the input (see `isEntity`).
+	const [ chosenSuggestion, setChosenSuggestion ] = useState<
+		LinkControlSuggestion | undefined
+	>();
+
 	// Wrapper for input changes that calls both internal and external handlers
-	const handleInputChange = ( newValue: string ) => {
+	const handleInputChange = (
+		newValue: string,
+		suggestion?: LinkControlSuggestion
+	) => {
 		setInternalURLInputValue( newValue );
 		onInputChange?.( newValue );
+
+		const isEntitySuggestion =
+			!! suggestion?.id &&
+			!! suggestion.type &&
+			! LINK_ENTRY_TYPES.includes( suggestion.type );
+		setChosenSuggestion( isEntitySuggestion ? suggestion : undefined );
 	};
 
 	// Compute isEntity internally based on handleEntities prop and presence of ID
@@ -442,12 +459,20 @@ function LinkControl( {
 	// Centralized submission function
 	const submitUrlValue = () => {
 		if ( valueHasChanges ) {
+			const { url: normalizedUrl } = normalizeUrl( currentUrlInputValue );
+			// A different URL no longer points at the previous page, post or
+			// term, so its binding must not be carried over.
+			const clearedBinding =
+				value?.id && value.url !== normalizedUrl
+					? { id: undefined, kind: undefined, type: undefined }
+					: {};
 			// Submit the original value with new stored values applied
 			// on top. URL is a special case as it may also be a prop.
 			onChange( {
 				...value,
 				...internalControlValue,
-				url: normalizeUrl( currentUrlInputValue ).url,
+				...clearedBinding,
+				url: normalizedUrl,
 			} );
 		}
 		stopEditing();
@@ -455,6 +480,14 @@ function LinkControl( {
 	};
 
 	const handleSubmit = () => {
+		// A suggestion chosen with Tab binds the link just as pressing Enter
+		// on it does.
+		if ( chosenSuggestion ) {
+			setChosenSuggestion( undefined );
+			handleSelectSuggestion( chosenSuggestion );
+			return;
+		}
+
 		// Validate URL before submitting
 		if ( ! validateAndSetValidity() ) {
 			return;
@@ -476,7 +509,16 @@ function LinkControl( {
 		}
 	};
 
+	const handleRemoveChosenSuggestion = () => {
+		setChosenSuggestion( undefined );
+		setInternalURLInputValue( '' );
+		onInputChange?.( '' );
+		speak( __( 'Selected link removed.' ) );
+		setShouldFocusSearchInput( true );
+	};
+
 	const resetInternalValues = () => {
+		setChosenSuggestion( undefined );
 		setInternalControlValue( value );
 	};
 
@@ -630,6 +672,10 @@ function LinkControl( {
 							onCreateSuggestion={ createPage }
 							onChange={ handleInputChange }
 							onSelect={ handleSelectSuggestion }
+							chosenSuggestion={ chosenSuggestion }
+							onRemoveChosenSuggestion={
+								handleRemoveChosenSuggestion
+							}
 							showInitialSuggestions={ showInitialSuggestions }
 							allowDirectEntry={ ! noDirectEntry }
 							showSuggestions={ showSuggestions }

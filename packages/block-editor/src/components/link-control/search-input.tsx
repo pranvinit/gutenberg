@@ -1,9 +1,14 @@
 import type { FormEvent, KeyboardEvent, RefObject } from 'react';
 import { forwardRef, useState } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import deprecated from '@wordpress/deprecated';
+import { Button } from '@wordpress/components';
+import { __unstableStripHTML as stripHTML } from '@wordpress/dom';
+import { BACKSPACE } from '@wordpress/keycodes';
+import { closeSmall } from '@wordpress/icons';
 import { URLInput } from '../';
 import LinkControlSearchResults from './search-results';
+import { getVisualTypeName } from './search-item';
 import { CREATE_TYPE } from './constants';
 import useSearchHandler from './use-search-handler';
 import type {
@@ -36,6 +41,8 @@ const LinkControlSearchInput = forwardRef<
 			onCreateSuggestion = noop,
 			onChange = noop,
 			onSelect = noop,
+			chosenSuggestion,
+			onRemoveChosenSuggestion = noop,
 			showSuggestions = true,
 			renderSuggestions = ( props: LinkControlSearchResultsProps ) => (
 				<LinkControlSearchResults { ...props } />
@@ -79,7 +86,7 @@ const LinkControlSearchInput = forwardRef<
 			selection: string,
 			suggestion?: LinkControlSuggestion
 		) => {
-			onChange( selection );
+			onChange( selection, suggestion );
 			setFocusedSuggestion( suggestion );
 		};
 
@@ -137,6 +144,12 @@ const LinkControlSearchInput = forwardRef<
 
 		const _placeholder = placeholder ?? __( 'Search or type URL' );
 
+		const chosenTitle = chosenSuggestion?.title
+			? stripHTML( chosenSuggestion.title as string )
+			: '';
+		const chosenTypeName =
+			chosenSuggestion && getVisualTypeName( chosenSuggestion );
+
 		const label =
 			hideLabelFromVision && placeholder !== ''
 				? _placeholder
@@ -144,6 +157,29 @@ const LinkControlSearchInput = forwardRef<
 
 		return (
 			<div className="block-editor-link-control__search-input-container">
+				{ /* Before the input, so Tab from the input still reaches Apply. */ }
+				{ chosenSuggestion && (
+					<div className="block-editor-link-control__chosen-suggestion">
+						<span className="block-editor-link-control__chosen-suggestion-title">
+							{ chosenTitle }
+						</span>
+						{ chosenTypeName && (
+							<span className="block-editor-link-control__chosen-suggestion-type">
+								{ chosenTypeName }
+							</span>
+						) }
+						<Button
+							size="small"
+							icon={ closeSmall }
+							label={ sprintf(
+								/* translators: %s: The title of the selected page, post or term. */
+								__( 'Remove %s' ),
+								chosenTitle
+							) }
+							onClick={ onRemoveChosenSuggestion }
+						/>
+					</div>
+				) }
 				<URLInput
 					disableSuggestions={ currentLink?.url === value }
 					label={ label }
@@ -161,6 +197,14 @@ const LinkControlSearchInput = forwardRef<
 						showInitialSuggestions
 					}
 					customValidity={ customValidityProp }
+					onKeyDown={ (
+						event: KeyboardEvent< HTMLInputElement >
+					) => {
+						if ( chosenSuggestion && event.keyCode === BACKSPACE ) {
+							event.preventDefault();
+							onRemoveChosenSuggestion();
+						}
+					} }
 					// Validation is handled manually via onSubmit and handleSubmit. We may be able to rely
 					// on browser validation when enhancements land to base level components:
 					// https://github.com/WordPress/gutenberg/pull/75188#issuecomment-3861757260
