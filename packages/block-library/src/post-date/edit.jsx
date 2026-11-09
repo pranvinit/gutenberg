@@ -92,7 +92,12 @@ export default function PostDateEdit( props ) {
 
 	const blockEditingMode = useBlockEditingMode();
 
-	const validDatetime = datetime || new Date();
+	// A binding can supply a value that isn't a date, such as the field's label
+	// when there is no post to read it from.
+	const validDatetime =
+		datetime && ! Number.isNaN( new Date( datetime ).getTime() )
+			? datetime
+			: new Date();
 	let postDate = (
 		<time
 			dateTime={ dateI18n( 'c', validDatetime ) }

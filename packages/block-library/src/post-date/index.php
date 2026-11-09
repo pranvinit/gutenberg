@@ -46,6 +46,18 @@ function render_block_core_post_date( $attributes, $content, $block ) {
 		$classes[] = 'wp-block-post-date__modified-date';
 	}
 
+	// The `core/post-data` source returns an empty value for a post that hasn't been modified
+	// since it was published. A block bound to the modified date falls back to the publish date.
+	$binding_args = $attributes['metadata']['bindings']['datetime']['args'] ?? array();
+	$bound_field  = $binding_args['field'] ?? $binding_args['key'] ?? null;
+	if (
+		empty( $attributes['datetime'] ) &&
+		'modified' === $bound_field &&
+		'core/post-data' === ( $attributes['metadata']['bindings']['datetime']['source'] ?? null )
+	) {
+		$attributes['datetime'] = get_block_bindings_source( 'core/post-data' )->get_value( array( 'field' => 'date' ), $block, 'datetime' );
+	}
+
 	if ( empty( $attributes['datetime'] ) ) {
 		// If the `datetime` attribute is set but empty, it could be because Block Bindings
 		// set it that way. This can happen e.g. if the block is bound to the

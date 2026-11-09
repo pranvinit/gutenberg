@@ -130,7 +130,7 @@ class Test_Render_Block_Core_Post_Date extends WP_UnitTestCase {
 		$this->assertStringContainsString( $expected_date, $output );
 	}
 
-	public function test_render_modified_date_before_publish_date() {
+	public function test_render_modified_date_before_publish_date_falls_back_to_publish_date() {
 		$this->update_post_modified( self::$post_id, '2025-07-01 00:00:00' );
 
 		$attributes = array(
@@ -155,6 +155,6 @@ class Test_Render_Block_Core_Post_Date extends WP_UnitTestCase {
 		);
 
 		$output = $block->render();
-		$this->assertSame( '', $output );
+		$this->assertStringContainsString( get_the_date( 'c', self::$post_id ), $output );
 	}
 }
