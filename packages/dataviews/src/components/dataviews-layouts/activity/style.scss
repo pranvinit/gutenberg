@@ -43,6 +43,29 @@
 			}
 		}
 
+		.dataviews-view-activity__item-header {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			align-self: stretch;
+			column-gap: var(--wpds-dimension-gap-md);
+			row-gap: var(--wpds-dimension-gap-xs);
+			min-height: var(--wpds-dimension-size-2xs);
+		}
+
+		.dataviews-view-activity__item-date {
+			display: flex;
+			align-items: center;
+			// Keeps the date at the end of the line, with or without a title.
+			margin-inline-start: auto;
+			color: var(--wpds-color-foreground-content-neutral-weak);
+			white-space: nowrap;
+
+			&:has(> :last-child:empty) {
+				display: none;
+			}
+		}
+
 		.dataviews-view-activity__primary-actions {
 			display: flex;
 			width: max-content;

@@ -14,6 +14,7 @@ function ActivityItem< Item >(
 		mediaField?: NormalizedField< Item >;
 		titleField?: NormalizedField< Item >;
 		descriptionField?: NormalizedField< Item >;
+		dateField?: NormalizedField< Item >;
 		otherFields: NormalizedField< Item >[];
 		posinset?: number;
 	}
@@ -25,6 +26,7 @@ function ActivityItem< Item >(
 		titleField,
 		mediaField,
 		descriptionField,
+		dateField,
 		otherFields,
 		posinset,
 		onClickItem,
@@ -85,6 +87,27 @@ function ActivityItem< Item >(
 			<titleField.render item={ item } field={ titleField } />
 		) : null;
 
+	const renderedDateField = dateField?.render ? (
+		<div className="dataviews-view-activity__item-date">
+			<VisuallyHidden render={ <span /> }>
+				{ dateField.label }
+			</VisuallyHidden>
+			<dateField.render item={ item } field={ dateField } />
+		</div>
+	) : null;
+
+	const renderedTitle = renderedTitleField && (
+		<ItemClickWrapper
+			item={ item }
+			isItemClickable={ isItemClickable }
+			onClickItem={ onClickItem }
+			renderItemLink={ renderItemLink }
+			className="dataviews-view-activity__item-title"
+		>
+			{ renderedTitleField }
+		</ItemClickWrapper>
+	);
+
 	const verticalGap = useMemo( () => {
 		switch ( density ) {
 			case 'comfortable':
@@ -124,16 +147,15 @@ function ActivityItem< Item >(
 					align="flex-start"
 					className="dataviews-view-activity__item-content"
 				>
-					{ renderedTitleField && (
-						<ItemClickWrapper
-							item={ item }
-							isItemClickable={ isItemClickable }
-							onClickItem={ onClickItem }
-							renderItemLink={ renderItemLink }
-							className="dataviews-view-activity__item-title"
-						>
-							{ renderedTitleField }
-						</ItemClickWrapper>
+					{ renderedDateField ? (
+						// The date stays on the title's line, and wraps below
+						// it when the item is too narrow for both.
+						<div className="dataviews-view-activity__item-header">
+							{ renderedTitle }
+							{ renderedDateField }
+						</div>
+					) : (
+						renderedTitle
 					) }
 					{ showDescription && descriptionField && (
 						<div className="dataviews-view-activity__item-description">

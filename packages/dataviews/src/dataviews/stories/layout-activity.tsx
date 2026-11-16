@@ -597,6 +597,7 @@ const LayoutActivityComponent = ( {
 		titleField: 'title',
 		descriptionField: 'description',
 		mediaField: 'icon',
+		layout: { dateField: 'time' },
 		showMedia,
 		sort: {
 			field: 'datetime',

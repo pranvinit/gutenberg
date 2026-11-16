@@ -501,6 +501,12 @@ export interface ViewActivity extends ViewBase {
 		 * The density of the view.
 		 */
 		density?: Density;
+
+		/**
+		 * The id of the field to show on the same line as the title,
+		 * aligned to the end of the item. Typically the date of the event.
+		 */
+		dateField?: string;
 	};
 }
 

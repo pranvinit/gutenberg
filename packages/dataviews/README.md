@@ -285,6 +285,7 @@ Right-align (`'end'`) whenever the cell value is fundamentally quantitative—nu
 `activity` layout:
 
 -   `density`: one of `comfortable`, `balanced`, or `compact`. Configures the size and spacing of the layout.
+-   `dateField`: the `id` of the field to show on the same line as the title, aligned to the end of the item. Typically the date of the event. The field is not repeated with the other `fields`.
 
 #### `onChangeView`: `function`
 

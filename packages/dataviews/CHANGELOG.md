@@ -4,6 +4,7 @@
 
 ### Enhancements
 
+-   DataViews: Add a `dateField` option to the `activity` layout, to show a field on the same line as the title, aligned to the end of the item ([#86680](https://github.com/WordPress/gutenberg/issues/86680)).
 -   DataForm: Don't show the missing-value message when focus leaves an empty required field, except in date fields ([#86600](https://github.com/WordPress/gutenberg/pull/86600)).
 -   DataForm: Tighten the line height of field values in the `panel` layout to 16px, so values that wrap take less room ([#86389](https://github.com/WordPress/gutenberg/pull/86389)).
 

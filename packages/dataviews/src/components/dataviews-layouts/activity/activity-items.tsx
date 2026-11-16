@@ -16,7 +16,12 @@ export default function ActivityItems< Item >(
 	const descriptionField = fields.find(
 		( field ) => field.id === view.descriptionField
 	);
+	const dateField = fields.find(
+		( field ) => field.id === view.layout?.dateField
+	);
 	const otherFields = ( view?.fields ?? [] )
+		// The date field is shown beside the title, not with the other fields.
+		.filter( ( fieldId ) => fieldId !== dateField?.id )
 		.map( ( fieldId ) => fields.find( ( f ) => fieldId === f.id ) )
 		.filter( isDefined );
 
@@ -29,6 +34,7 @@ export default function ActivityItems< Item >(
 				mediaField={ mediaField }
 				titleField={ titleField }
 				descriptionField={ descriptionField }
+				dateField={ dateField }
 				otherFields={ otherFields }
 				posinset={ view.infiniteScrollEnabled ? index + 1 : undefined }
 			/>
